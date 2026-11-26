@@ -27,6 +27,8 @@ $env:MACSTYLE_ALLOW_ADMIN = '1'   # CI runners are administrators; real installs
 $installLog = Join-Path $env:TEMP 'macstyle-install.log'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'windows\install.ps1') -Yes *>&1 | Tee-Object -FilePath $installLog
 Check 'install.ps1 finished' ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
+$machineLog = Join-Path $env:ProgramData 'macstyle\machine-icons.log'
+if ((Test-Path $machineLog) -and ((Get-Content -Raw $machineLog) -match 'Error:')) { Write-Host '--- machine-icons.log'; Get-Content $machineLog | Write-Host }
 $installText = Get-Content -Raw $installLog
 
 $state = Join-Path $env:LOCALAPPDATA 'macstyle'

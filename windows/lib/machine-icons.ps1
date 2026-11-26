@@ -65,6 +65,7 @@ try {
     Write-Host "folders, C: drive and $n shared shortcuts"
 } catch {
     Write-Host "Error: $($_.Exception.Message)"
+    Write-Host $_.ScriptStackTrace
     Stop-Transcript | Out-Null
     exit 1
 }

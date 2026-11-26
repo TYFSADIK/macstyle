@@ -316,9 +316,14 @@ function Install-MachineIcons {
     }
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'lib\machine-icons.ps1') + '"'),
         '-Source', ('"' + (Join-Path $State 'icons\ico') + '"'))
+    # Recorded before it runs: if it stops halfway, uninstall.ps1 still undoes what it changed
+    $marker = Join-Path $State 'machine-icons.txt'
+    $hadMarker = Test-Path $marker
+    Set-Content -Path $marker -Value (Get-Date -Format o)
     try {
         $p = Start-Process -FilePath (Get-Command powershell.exe).Source -ArgumentList $psArgs -Verb RunAs -WindowStyle Hidden -Wait -PassThru
     } catch {
+        if (-not $hadMarker) { Remove-Item $marker -Force }   # nothing ran
         Warn 'skipped: administrator was not approved (run the install again to try once more)'
         return
     }
@@ -326,7 +331,6 @@ function Install-MachineIcons {
         Warn "did not finish (exit code $($p.ExitCode)); see $(Join-Path $env:ProgramData 'macstyle\machine-icons.log')"
         return
     }
-    Set-Content -Path (Join-Path $State 'machine-icons.txt') -Value (Get-Date -Format o)
     Update-Icons
     Ok 'every folder, the C: drive and the Start menu shortcuts shared by all users'
 }

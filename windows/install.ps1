@@ -37,8 +37,9 @@ $Apps = @(
     @('QL-Win.QuickLook', 'QuickLook: press Space on a file to preview it'),
     @('Microsoft.PowerToys', 'PowerToys: Alt+Space searches apps and files, like Spotlight')
 )
+# (the leading comma keeps a one-item list a list: PowerShell would flatten it into its two strings)
 $StoreApps = @(
-    @('XP8JK4HZBVF435', 'Auto Dark Mode: dark mode at sunset, and a tray switch')
+    ,@('XP8JK4HZBVF435', 'Auto Dark Mode: dark mode at sunset, and a tray switch')
 )
 $TerminalApps = @(
     @('Starship.Starship', 'Starship: the prompt'),

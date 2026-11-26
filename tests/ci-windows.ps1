@@ -20,8 +20,10 @@ $docs = [Environment]::GetFolderPath('MyDocuments')
 $profiles = @((Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1'), (Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'))
 
 $env:MACSTYLE_ALLOW_ADMIN = '1'   # CI runners are administrators; real installs refuse that
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'windows\install.ps1') -Yes
+$installLog = Join-Path $env:TEMP 'macstyle-install.log'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'windows\install.ps1') -Yes *>&1 | Tee-Object -FilePath $installLog
 Check 'install.ps1 finished' ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
+$installText = Get-Content -Raw $installLog
 
 $state = Join-Path $env:LOCALAPPDATA 'macstyle'
 $arrow = RegVal 'HKCU:\Control Panel\Cursors' 'Arrow'
@@ -41,8 +43,14 @@ Check 'Windows Terminal profile and colours' $fragOk $frag
 if (Get-Command winget -ErrorAction SilentlyContinue) {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine')
     foreach ($t in @('starship', 'fastfetch', 'lsd', 'zoxide', 'fzf')) { Check "terminal tool $t" ([bool](Get-Command $t -ErrorAction SilentlyContinue)) }
-    $listed = winget list --id Seelen.SeelenUI -e --accept-source-agreements | Out-String
-    Check 'Seelen UI (dock and top bar)' ($listed -match 'Seelen')
+    foreach ($app in @(@('Seelen.SeelenUI', 'Seelen UI (dock and top bar)'), @('QL-Win.QuickLook', 'QuickLook'), @('Microsoft.PowerToys', 'PowerToys'))) {
+        $listed = winget list --id $app[0] -e --accept-source-agreements | Out-String
+        Check $app[1] ($listed -match [regex]::Escape($app[0]))
+    }
+    # Auto Dark Mode comes from the Microsoft Store, which a Windows Server runner may not have:
+    # it must at least be tried by name (once, it was silently skipped)
+    $adm = $installText -match '\[ok\] Auto Dark Mode' -or $installText -match 'Auto Dark Mode: dark mode at sunset, and a tray switch did not install'
+    Check 'Auto Dark Mode installed or tried' $adm (($installText -split "`n" | Select-String 'Auto Dark Mode') -join ' ').Trim()
     # The prompt itself renders in a fresh PowerShell with the profile
     # (native stderr is an error under Stop in Windows PowerShell 5.1, so not here)
     $ErrorActionPreference = 'Continue'

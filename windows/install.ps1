@@ -522,7 +522,7 @@ function Write-Finish {
       - Open Windows Terminal for the macstyle prompt.
 
     Undo everything:  .\windows\uninstall.ps1
-    Log of this run:  $Log
+    Log of this run:  notepad "$Log"
 "@
 }
 

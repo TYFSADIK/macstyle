@@ -1,0 +1,9 @@
+[Unit]
+Description=Run macstyle-kde-darkswitch when the KDE settings change (light or dark global theme)
+
+[Path]
+PathChanged=%h/.config/kdeglobals
+Unit=macstyle-kde-darkswitch.service
+
+[Install]
+WantedBy=default.target

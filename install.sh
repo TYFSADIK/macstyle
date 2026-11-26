@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# macstyle: a macOS-like GNOME desktop for Fedora, Ubuntu and Debian, in one command.
+# macstyle: a macOS-like GNOME or KDE Plasma desktop for Fedora, Ubuntu and Debian, in one command.
+# (Inside KDE Plasma it runs kde/install.sh: see there.)
 #
 #   git clone https://github.com/TYFSADIK/macstyle
 #   cd macstyle
@@ -25,6 +26,15 @@ REPO="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
 source "$REPO/lib/common.sh"
 # shellcheck source=lib/distro.sh
 source "$REPO/lib/distro.sh"
+# shellcheck source=lib/files.sh
+source "$REPO/lib/files.sh"
+# shellcheck source=lib/shared.sh
+source "$REPO/lib/shared.sh"
+
+# Inside KDE Plasma: the KDE edition (kde/install.sh) does the rest
+if [[ "${XDG_CURRENT_DESKTOP:-}" == *KDE* ]]; then
+    exec "$REPO/kde/install.sh" "$@"
+fi
 
 # GNOME 43 (Debian 12) and newer. extensions/ holds copies for GNOME 45 to 51; extensions-50/ and
 # extensions-51/ hold the ones that differ per version. Anything without a copy for this GNOME
@@ -34,18 +44,6 @@ GNOME_MAJOR=""   # set by preflight
 GNOME_SET=""     # the extensions-NN folder for this GNOME, if there is one
 WHITESUR_COMMIT=d5782652d412137e26fb8ff55b55a5572e4c6995   # WhiteSur GTK theme, for GNOME 47 and older
 WHITESUR_URL="https://github.com/vinceliuice/WhiteSur-gtk-theme/archive/$WHITESUR_COMMIT.tar.gz"
-ICONS_COMMIT=839848b9a8a38a92a6936e30c4abe35cc6f2546d   # MacTahoe icon theme, 2026-09-10
-ICONS_URL="https://github.com/vinceliuice/MacTahoe-icon-theme/archive/$ICONS_COMMIT.tar.gz"
-# The terminal: JetBrains Mono with Nerd Font icons, and Powerlevel10k (the prompt engine).
-# fastfetch and lsd, for distributions that do not package them:
-FASTFETCH_TAG=2.71.0
-LSD_TAG=v1.2.0
-FONT_URL=https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/JetBrainsMono.tar.xz
-FONT_SHA256=04d5e8f903693f9dd13e16f867e994834e681eb3c72c0d337a770dcda09010cf
-P10K_COMMIT=d05a1b00f9a61f9578bf9dc19b8451942dde8734   # 2026-09-06
-P10K_URL="https://github.com/romkatv/powerlevel10k/archive/$P10K_COMMIT.tar.gz"
-WALLPAPERS=(mountain:Mountain sub-arctic:Sub-Arctic coast:Coast waterfall:Waterfall orionids:Orionids nuvole:Nuvole)
-DEFAULT_WALLPAPER=mountain
 
 ASSUME_YES=0 PACKAGES_ON=1 APPS_ON=1 TERMINAL_ON=1 FORCE=0
 for arg in "$@"; do
@@ -97,41 +95,6 @@ preflight() {
 
 # --- record of what was there before -------------------------------------------------------------
 
-mark_installed() {   # remember a path the install put in place
-    mkdir -p "$STATE"
-    grep -qxF -- "$1" "$INSTALLED" 2>/dev/null || printf '%s\n' "$1" >> "$INSTALLED"
-}
-
-keep_original() {    # save PATH as it was before the first install, once
-    local path="$1" rel
-    [[ -e "$path" || -L "$path" ]] || return 0
-    grep -qxF -- "$path" "$INSTALLED" 2>/dev/null && return 0   # ours from an earlier run
-    rel="${path#"$HOME"/}"
-    [[ -e "$ORIGINAL/files/$rel" || -L "$ORIGINAL/files/$rel" ]] && return 0
-    mkdir -p "$(dirname -- "$ORIGINAL/files/$rel")"
-    cp -a -- "$path" "$ORIGINAL/files/$rel"
-}
-
-put() {              # put SRC at DEST (file or folder), keeping the original
-    local src="$1" dest="$2"
-    keep_original "$dest"
-    rm -rf -- "$dest"
-    mkdir -p -- "$(dirname -- "$dest")"
-    cp -a -- "$src" "$dest"
-    mark_installed "$dest"
-}
-
-write_file() {       # write stdin to DEST, keeping the original
-    local dest="$1" tmp
-    keep_original "$dest"
-    mkdir -p -- "$(dirname -- "$dest")"
-    tmp="$(mktemp "$dest.XXXXXX")"
-    cat > "$tmp"
-    chmod 644 "$tmp"
-    rm -rf -- "$dest"
-    mv -- "$tmp" "$dest"
-    mark_installed "$dest"
-}
 
 backup() {
     step "Saving your current desktop settings"
@@ -325,24 +288,8 @@ themes() {
         "$REPO/lib/map-softer.json" >/dev/null
     mark_installed "$THEMES_DIR/WhiteSur-Light-soft"
     ok "WhiteSur Light (soft), WhiteSur Dark"
+    icons
 
-    if [[ -f "$ICONS_DIR/MacTahoe-light/index.theme" && -f "$ICONS_DIR/MacTahoe-dark/index.theme" ]]; then
-        ok "MacTahoe icons are already installed"
-    else
-        info "downloading the MacTahoe icon theme (about 10 MB)..."
-        local tmp; tmp="$(mktemp -d)"
-        curl -fsSL --retry 3 "$ICONS_URL" -o "$tmp/icons.tar.gz" ||
-            die "could not download $ICONS_URL. Check the internet connection and run ./install.sh again."
-        tar -xzf "$tmp/icons.tar.gz" -C "$tmp"
-        local src; src="$(find "$tmp" -maxdepth 1 -type d -name 'MacTahoe-icon-theme-*' -print -quit)"
-        [[ -n "$src" && -x "$src/install.sh" ]] || die "the icon download looks wrong ($ICONS_URL)."
-        for t in MacTahoe MacTahoe-light MacTahoe-dark; do keep_original "$ICONS_DIR/$t"; done
-        (cd "$src" && ./install.sh -d "$ICONS_DIR" >/dev/null 2>&1) ||
-            die "the MacTahoe icon installer failed."
-        for t in MacTahoe MacTahoe-light MacTahoe-dark; do mark_installed "$ICONS_DIR/$t"; done
-        rm -rf -- "$tmp"
-        ok "MacTahoe icons and cursor installed"
-    fi
 
     # GTK 4 and libadwaita apps (Files, Settings, Text Editor...) take the theme from this file,
     # in light and dark. Unite adds its own lines for the window buttons at the next login.
@@ -546,90 +493,13 @@ terminal() {
         warn "zsh is not installed (--no-packages?), so the terminal is left as it is"
         return
     fi
-    local tmp src fontdir="$DATA_HOME/fonts/JetBrainsMonoNerdFont" p10k="$DATA_HOME/$NAME/powerlevel10k"
-    if [[ -f "$fontdir/JetBrainsMonoNerdFont-Regular.ttf" ]]; then
-        ok "JetBrainsMono Nerd Font is already installed"
-    else
-        info "downloading the JetBrainsMono Nerd Font (about 7 MB)..."
-        tmp="$(mktemp -d)"
-        curl -fsSL --retry 3 "$FONT_URL" -o "$tmp/font.tar.xz" ||
-            die "could not download $FONT_URL. Check the internet connection and run ./install.sh again."
-        echo "$FONT_SHA256  $tmp/font.tar.xz" | sha256sum --check --quiet - ||
-            die "the font download does not match its checksum ($FONT_URL)."
-        mkdir -p "$tmp/font"
-        tar -xJf "$tmp/font.tar.xz" -C "$tmp/font" OFL.txt \
-            JetBrainsMonoNerdFont-{Regular,Bold,Italic,BoldItalic}.ttf
-        put "$tmp/font" "$fontdir"
-        rm -rf -- "$tmp"
-        fc-cache -f "$DATA_HOME/fonts" >/dev/null 2>&1 || true
-        ok "JetBrainsMono Nerd Font"
-    fi
-
-    # fastfetch and lsd, from their projects when the distribution does not package them
-    local arch; arch="$(uname -m)"
-    if ! command -v fastfetch >/dev/null; then
-        local ffa=amd64; [[ "$arch" = aarch64 ]] && ffa=aarch64
-        tmp="$(mktemp -d)"
-        if curl -fsSL --retry 3 "https://github.com/fastfetch-cli/fastfetch/releases/download/$FASTFETCH_TAG/fastfetch-linux-$ffa.tar.gz" -o "$tmp/ff.tar.gz"; then
-            tar -xzf "$tmp/ff.tar.gz" -C "$tmp"
-            src="$(find "$tmp" -type f -name fastfetch -perm -u+x -print -quit)"
-            [[ -n "$src" ]] && put "$src" "$BIN_DIR/fastfetch" && ok "fastfetch $FASTFETCH_TAG in $BIN_DIR"
-        else
-            warn "could not download fastfetch; new terminals open without the system summary"
-        fi
-        rm -rf -- "$tmp"
-    fi
-    if ! command -v lsd >/dev/null; then
-        tmp="$(mktemp -d)"
-        if curl -fsSL --retry 3 "https://github.com/lsd-rs/lsd/releases/download/$LSD_TAG/lsd-$LSD_TAG-$arch-unknown-linux-gnu.tar.gz" -o "$tmp/lsd.tar.gz"; then
-            tar -xzf "$tmp/lsd.tar.gz" -C "$tmp"
-            src="$(find "$tmp" -type f -name lsd -perm -u+x -print -quit)"
-            [[ -n "$src" ]] && put "$src" "$BIN_DIR/lsd" && ok "lsd $LSD_TAG in $BIN_DIR"
-        else
-            warn "could not download lsd; ls stays as it is"
-        fi
-        rm -rf -- "$tmp"
-    fi
-
-    # Powerlevel10k draws the prompt. A setup that loads it already keeps its own copy.
-    if [[ -f "$HOME/.zshrc" ]] && grep -q powerlevel10k "$HOME/.zshrc"; then
-        ok "Powerlevel10k: your own, loaded by ~/.zshrc"
-    elif [[ -f "$p10k/powerlevel10k.zsh-theme" ]]; then
-        ok "Powerlevel10k is already downloaded"
-    else
-        info "downloading Powerlevel10k..."
-        tmp="$(mktemp -d)"
-        curl -fsSL --retry 3 "$P10K_URL" -o "$tmp/p10k.tar.gz" ||
-            die "could not download $P10K_URL. Check the internet connection and run ./install.sh again."
-        tar -xzf "$tmp/p10k.tar.gz" -C "$tmp"
-        src="$(find "$tmp" -maxdepth 1 -type d -name 'powerlevel10k-*' -print -quit)"
-        [[ -n "$src" && -f "$src/powerlevel10k.zsh-theme" ]] || die "the Powerlevel10k download looks wrong ($P10K_URL)."
-        put "$src" "$p10k"
-        rm -rf -- "$tmp"
-        ok "Powerlevel10k (commit ${P10K_COMMIT:0:7})"
-    fi
-    # gitstatusd, Powerlevel10k's fast git helper: fetched now, so the first prompt needs no download.
-    if [[ -f "$p10k/gitstatus/install" ]]; then
-        sh "$p10k/gitstatus/install" >/dev/null 2>&1 ||
-            warn "gitstatusd was not downloaded now; Powerlevel10k fetches it when you first open a terminal"
-    fi
-
-    local f
-    for f in macstyle.zsh p10k-base.zsh p10k-macstyle.zsh; do
-        put "$REPO/terminal/$f" "$CONFIG_HOME/$NAME/zsh/$f"
-    done
-    put "$REPO/terminal/fastfetch.jsonc" "$CONFIG_HOME/fastfetch/config.jsonc"   # the small logo of this distribution
-    put "$REPO/terminal/lsd/config.yaml" "$CONFIG_HOME/lsd/config.yaml"
-    put "$REPO/terminal/lsd/colors.yaml" "$CONFIG_HOME/lsd/colors.yaml"
-    keep_original "$HOME/.zshrc"
-    [[ -e "$HOME/.zshrc" || -e "$STATE/zshrc-created" ]] || touch "$STATE/zshrc-created"
-    python3 -I "$REPO/lib/zshrc-blocks.py" add "$HOME/.zshrc"
-    ok "zsh: round pills prompt, typing help, Ctrl+R search, z jumps, ls with icons"
+    terminal_shell
+    local login
 
     # Ptyxis, Fedora's terminal: our colours (light and dark), the font, a see-through background.
     if [[ -f /usr/share/glib-2.0/schemas/org.gnome.Ptyxis.gschema.xml ]]; then
         put "$REPO/terminal/macstyle.palette" "$DATA_HOME/org.gnome.Ptyxis/palettes/macstyle.palette"
-        local uuid login profile
+        local uuid profile
         uuid="$(gsettings get org.gnome.Ptyxis default-profile-uuid | tr -d "'")"
         [[ -n "$uuid" ]] || uuid="$(gsettings get org.gnome.Ptyxis profile-uuids | grep -oE '[0-9a-f]{32}' | head -n 1 || true)"
         if [[ -z "$uuid" ]]; then   # Ptyxis has not been opened yet: make its first profile
@@ -707,6 +577,10 @@ EOF
 
 main() {
     mkdir -p "$STATE"
+    if [[ -e "$STATE/edition" && "$(cat "$STATE/edition")" != gnome ]]; then
+        die "the KDE edition of macstyle is installed for this account: run ./uninstall.sh first."
+    fi
+    echo gnome > "$STATE/edition"
     LOG="$STATE/install-$(date +%Y%m%d-%H%M%S).log"
     exec > >(tee -a "$LOG") 2>&1
     printf '%smacstyle%s: a macOS-like GNOME desktop for %s\n' "$B" "$N" "$DISTRO_NAME"

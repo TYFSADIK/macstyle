@@ -29,6 +29,14 @@ desktop_packages() {
     esac
 }
 
+# KDE Plasma edition: Kvantum (the MacTahoe style for Qt and KDE apps) and gdbus (to talk to Plasma).
+kde_packages() {
+    case "$DISTRO_FAMILY" in
+        fedora) echo kvantum glib2 ;;
+        debian) echo qt6-style-kvantum libglib2.0-bin ;;
+    esac
+}
+
 # To build the WhiteSur shell theme for GNOME versions it does not ship prebuilt for.
 theme_build_packages() {
     case "$DISTRO_FAMILY" in

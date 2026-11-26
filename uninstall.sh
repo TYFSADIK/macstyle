@@ -13,6 +13,10 @@ shopt -s nullglob
 REPO="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$REPO/lib/common.sh"
+# The KDE edition has its own uninstall
+if [[ -f "$STATE/edition" && "$(cat "$STATE/edition")" == kde ]]; then
+    exec "$REPO/kde/uninstall.sh" "$@"
+fi
 # The Firefox defaults file used by the install (Debian's Firefox ESR keeps it elsewhere)
 [[ -f "$STATE/firefox-policies-path" ]] && FIREFOX_POLICIES="$(cat "$STATE/firefox-policies-path")"
 

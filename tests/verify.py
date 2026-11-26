@@ -78,23 +78,43 @@ def installed():
         check("GNOME Terminal palette", pal.count("#") == 16, pal[:60])
 
 
+def shell_states():
+    """Each extension's state, straight from GNOME Shell over D-Bus (the gnome-extensions tool is a
+    separate package on Debian and Ubuntu). States: 1 active, 2 inactive, 3 error, 4 out of date,
+    6 initialized (loaded, not enabled in this session mode)."""
+    import re
+    out = run("gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path",
+              "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.ListExtensions")
+    states = {}
+    for m in re.finditer(r"'([^']+)': \{'uuid': <'[^']+'>(.*?)\}", out):
+        st = re.search(r"'state': <([0-9.]+)>", m.group(2))
+        if st:
+            states[m.group(1)] = int(float(st.group(1)))
+    return states
+
+
+NAMES = {1: "ACTIVE", 2: "INACTIVE", 3: "ERROR", 4: "OUT OF DATE", 6: "INITIALIZED"}
+
+
 def extensions():
-    out = run("gnome-extensions", "list", "--enabled")
-    enabled = [u for u in out.split() if u]
-    check("GNOME Shell sees the extensions", len(enabled) >= 8, f"{len(enabled)} enabled")
+    enabled = [u for u in gget("org.gnome.shell", "enabled-extensions").strip("[]").replace("'", "").split(", ") if u]
+    states = shell_states()
+    running = [u for u in enabled if u in states]
+    check("GNOME Shell sees the extensions", len(running) >= 8, f"{len(running)} of {len(enabled)} enabled")
     bad = []
     for u in enabled:
-        info = run("gnome-extensions", "info", u)
-        state = next((l.split(":", 1)[1].strip() for l in info.splitlines() if l.strip().startswith("State")), "?")
-        if state.upper() in ("ACTIVE", "ENABLED"):
+        state = states.get(u)
+        if state == 1:
             continue
         # an extension made only for the lock screen waits, loaded, until the screen locks
         meta_path = os.path.join(EXT, u, "metadata.json")
         modes = json.load(open(meta_path)).get("session-modes", ["user"]) if os.path.exists(meta_path) else ["user"]
-        if "user" not in modes and state.upper() == "INITIALIZED":
+        if "user" not in modes and state == 6:
             continue
-        bad.append(f"{u} ({state})")
-    check("every extension loaded", enabled and not bad, ", ".join(bad) or (f"all {len(enabled)} ACTIVE" if enabled else "none running"))
+        if state is None and not os.path.exists(meta_path) and not os.path.exists(f"/usr/share/gnome-shell/extensions/{u}"):
+            continue   # enabled in settings but not installed (switched on by the system, not by macstyle)
+        bad.append(f"{u} ({NAMES.get(state, state)})")
+    check("every extension loaded", running and not bad, ", ".join(bad) or f"all {len(running)} ACTIVE")
 
 
 def flat(path):

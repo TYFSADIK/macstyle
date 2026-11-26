@@ -43,6 +43,11 @@ for _ in $(seq 1 20); do
     gdbus introspect --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 >/dev/null 2>&1 && break
     sleep 0.5
 done
+# the test user and its session, as logind would know them
+mock() { gdbus call --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 --method "org.freedesktop.DBus.Mock.$1" "${@:2}" >/dev/null; }
+mock AddSeat seat0 || true
+mock AddUser 1000 tester true || true
+mock AddSession c1 seat0 1000 tester true || true
 echo 'tester ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/tester
 cp -a "$REPO" /home/tester/macstyle
 chown -R tester:tester /home/tester/macstyle

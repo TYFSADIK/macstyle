@@ -83,8 +83,14 @@ def extensions():
     for u in enabled:
         info = run("gnome-extensions", "info", u)
         state = next((l.split(":", 1)[1].strip() for l in info.splitlines() if l.strip().startswith("State")), "?")
-        if state.upper() not in ("ACTIVE", "ENABLED"):
-            bad.append(f"{u} ({state})")
+        if state.upper() in ("ACTIVE", "ENABLED"):
+            continue
+        # an extension made only for the lock screen waits, loaded, until the screen locks
+        meta_path = os.path.join(EXT, u, "metadata.json")
+        modes = json.load(open(meta_path)).get("session-modes", ["user"]) if os.path.exists(meta_path) else ["user"]
+        if "user" not in modes and state.upper() == "INITIALIZED":
+            continue
+        bad.append(f"{u} ({state})")
     check("every extension loaded", enabled and not bad, ", ".join(bad) or (f"all {len(enabled)} ACTIVE" if enabled else "none running"))
 
 

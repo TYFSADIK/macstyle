@@ -25,6 +25,11 @@ apply() {
   [ "$(gsettings get $s gtk-theme)"  = "'$g'" ] || gsettings set $s gtk-theme "$g"
   [ "$(gsettings get $s icon-theme)" = "'MacTahoe-$i'" ] || gsettings set $s icon-theme "MacTahoe-$i"
   [ "$(dconf read $u)" = "'WhiteSur-$v'" ] || dconf write $u "'WhiteSur-$v'"
+  # GTK 4 older than 4.20 cannot follow Dark Style in CSS: point macstyle's marked line at this mode
+  css="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/gtk.css"
+  if [ -f "$css" ] && grep -q 'macstyle: follows Dark Style' "$css"; then
+    sed -i "s|WhiteSur-[A-Za-z-]*/gtk-4.0/gtk.css\(.*macstyle: follows Dark Style\)|$g/gtk-4.0/gtk.css\1|" "$css"
+  fi
   if [ $v = Dark ]; then
     dconf write $b/panel/style-panel 2
     dconf write $b/dash-to-dock/style-dash-to-dock 2

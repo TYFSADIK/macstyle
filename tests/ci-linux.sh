@@ -38,7 +38,13 @@ mkdir -p /run/dbus
 [ -S /run/dbus/system_bus_socket ] || dbus-daemon --system --fork
 # ...and the login manager on it. A container does not boot systemd, so a stand-in answers GNOME
 # Shell's questions, as in GNOME's own tests (python-dbusmock's logind template).
-python3 -m dbusmock --system --template logind >/tmp/logind-mock.log 2>&1 &
+# (Debian's and Ubuntu 24.04's python-dbusmock has a bug in this template: use the current release)
+dbusmock_py=python3
+if [ -f /etc/debian_version ]; then
+    apt-get install -y -qq --no-install-recommends python3-venv python3-dbus >/dev/null
+    python3 -m venv --system-site-packages /opt/dbusmock && /opt/dbusmock/bin/pip install -q python-dbusmock && dbusmock_py=/opt/dbusmock/bin/python
+fi
+$dbusmock_py -m dbusmock --system --template logind >/tmp/logind-mock.log 2>&1 &
 for _ in $(seq 1 20); do
     gdbus introspect --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 >/dev/null 2>&1 && break
     sleep 0.5

@@ -108,8 +108,12 @@ def uninstalled(before_path):
     before, after = flat(before_path), flat(after_path)
     watched = ("/org/gnome/shell/", "/org/gnome/desktop/interface/", "/org/gnome/desktop/background/",
                "/org/gnome/desktop/wm/preferences/", "/org/gnome/Ptyxis/", "/org/gnome/terminal/")
+    # keys GNOME Shell writes by itself when it runs (the test started it), not macstyle's
+    shell_own = ("/org/gnome/desktop/interface/enable-animations", "/org/gnome/shell/welcome-dialog-last-shown-version")
     diff = []
     for k in sorted(set(before) | set(after)):
+        if k in shell_own:
+            continue
         if not k.startswith(watched) or "/extensions/" in k and k not in before:
             continue   # extension settings with nothing set before are reset, not deleted
         if before.get(k) != after.get(k):

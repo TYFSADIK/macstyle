@@ -350,11 +350,23 @@ themes() {
     for f in gtk.css gtk-dark.css assets windows-assets; do
         [[ -L "$CONFIG_HOME/gtk-4.0/$f" ]] && { keep_original "$CONFIG_HOME/gtk-4.0/$f"; rm -f -- "$CONFIG_HOME/gtk-4.0/$f"; }
     done
-    write_file "$CONFIG_HOME/gtk-4.0/gtk.css" <<EOF
+    # GTK 4.20 and newer switch with Dark Style by themselves (CSS media queries). Older GTK 4
+    # (Debian 13, Ubuntu 24.04) rejects @media: one marked import, which macstyle-darkswitch
+    # rewrites when Dark Style changes (it leaves Unite's lines alone).
+    local gtk4 minor=0
+    gtk4="$(find /usr/lib /usr/lib64 -name 'libgtk-4.so.1.*' -print -quit 2>/dev/null || true)"
+    [[ "$gtk4" =~ libgtk-4\.so\.1\.([0-9]+)\. ]] && minor=$((BASH_REMATCH[1] / 100))
+    if ((minor >= 20)); then
+        write_file "$CONFIG_HOME/gtk-4.0/gtk.css" <<EOF
 @media (prefers-color-scheme: light) { @import url("file://$THEMES_DIR/WhiteSur-Light-soft/gtk-4.0/gtk.css"); }
 @media (prefers-color-scheme: dark)  { @import url("file://$THEMES_DIR/WhiteSur-Dark/gtk-4.0/gtk.css"); }
 EOF
-    ok "GTK 4 apps follow the theme ($CONFIG_HOME/gtk-4.0/gtk.css)"
+    else
+        write_file "$CONFIG_HOME/gtk-4.0/gtk.css" <<EOF
+@import url("file://$THEMES_DIR/WhiteSur-Light-soft/gtk-4.0/gtk.css"); /* macstyle: follows Dark Style */
+EOF
+    fi
+    ok "GTK 4 apps follow the theme ($CONFIG_HOME/gtk-4.0/gtk.css, GTK 4.$minor)"
 }
 
 wallpapers() {

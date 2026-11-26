@@ -25,7 +25,7 @@ detect_distro() {
 desktop_packages() {
     case "$DISTRO_FAMILY" in
         fedora) echo libdbusmenu libdbusmenu-gtk3 gnome-shell-extension-apps-menu gnome-shell-extension-background-logo sushi ;;
-        debian) echo libdbusmenu-glib4 libdbusmenu-gtk3-4 gnome-shell-extensions gnome-sushi dconf-cli ;;
+        debian) echo libdbusmenu-glib4 libdbusmenu-gtk3-4 gnome-shell-extensions gnome-menus gnome-sushi dconf-cli ;;
     esac
 }
 

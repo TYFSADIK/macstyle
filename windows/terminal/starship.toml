@@ -1,0 +1,43 @@
+# macstyle: the prompt for PowerShell on Windows (Starship), round pills like the Linux prompt:
+# the folder, the git branch (green) and changes (amber); on the right an error pill when a
+# command fails, how long a slow command took, and the time.
+"$schema" = "https://starship.rs/config-schema.json"
+add_newline = true
+format = "$directory$git_branch$git_status$line_break$character"
+right_format = "$status$cmd_duration$time"
+
+[directory]
+format = "[](fg:#0860f2)[ $path ](fg:#ffffff bg:#0860f2)[](fg:#0860f2) "
+truncation_length = 3
+truncate_to_repo = false
+home_symbol = "~"
+
+[git_branch]
+format = "[](fg:#1f7a3a)[ $symbol$branch ](fg:#ffffff bg:#1f7a3a)[](fg:#1f7a3a) "
+symbol = " "
+
+[git_status]
+format = "([](fg:#946000)[ $all_status$ahead_behind ](fg:#ffffff bg:#946000)[](fg:#946000) )"
+modified = "!${count} "
+staged = "+${count} "
+untracked = "?${count} "
+deleted = "-${count} "
+ahead = "⇡${count} "
+behind = "⇣${count} "
+
+[status]
+disabled = false
+format = "[](fg:#c4271b)[ ✘ $status ](fg:#ffffff bg:#c4271b)[](fg:#c4271b) "
+
+[cmd_duration]
+min_time = 3000
+format = "[](fg:#8a3fc0)[  $duration ](fg:#ffffff bg:#8a3fc0)[](fg:#8a3fc0) "
+
+[time]
+disabled = false
+time_format = "%H:%M"
+format = "[](fg:#86868b)[ $time ](fg:#ffffff bg:#86868b)[](fg:#86868b)"
+
+[character]
+success_symbol = "[❯](bold #0860f2)"
+error_symbol = "[❯](bold #c4271b)"

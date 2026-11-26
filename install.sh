@@ -303,13 +303,21 @@ themes() {
             die "could not download $WHITESUR_URL. Check the internet connection and run ./install.sh again."
         tar -xzf "$wtmp/ws.tar.gz" -C "$wtmp"
         wsrc="$(find "$wtmp" -maxdepth 1 -type d -name 'WhiteSur-gtk-theme-*' -print -quit)"
-        for t in WhiteSur-Light WhiteSur-Dark; do keep_original "$THEMES_DIR/$t"; done
-        (cd "$wsrc" && ./install.sh -d "$THEMES_DIR" -c light -c dark >"$wtmp/build.log" 2>&1) ||
+        local before=() d
+        mkdir -p "$THEMES_DIR"
+        for d in "$THEMES_DIR"/WhiteSur*; do before+=("$d"); done
+        for d in "${before[@]}"; do keep_original "$d"; done
+        # WhiteSur hides the cursor with setterm for its progress animation; without a terminal
+        # (TERM unset, output to a log) setterm fails and WhiteSur stops. A setterm that does nothing:
+        mkdir -p "$wtmp/bin"
+        printf '#!/bin/sh\nexit 0\n' > "$wtmp/bin/setterm"
+        chmod 755 "$wtmp/bin/setterm"
+        (cd "$wsrc" && PATH="$wtmp/bin:$PATH" ./install.sh -d "$THEMES_DIR" -c light -c dark -o normal >"$wtmp/build.log" 2>&1) ||
             { tail -n 20 "$wtmp/build.log" >&2; die "the WhiteSur theme did not build (see above)."; }
         for t in WhiteSur-Light WhiteSur-Dark; do
             [[ -d "$THEMES_DIR/$t" ]] || die "the WhiteSur build made no $t theme."
-            mark_installed "$THEMES_DIR/$t"
         done
+        for d in "$THEMES_DIR"/WhiteSur*; do mark_installed "$d"; done   # every variant it made
         rm -rf -- "$wtmp"
     fi
     keep_original "$THEMES_DIR/WhiteSur-Light-soft"

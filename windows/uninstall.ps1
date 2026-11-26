@@ -71,7 +71,7 @@ if (-not $KeepApps -and (Test-Path (Join-Path $State 'winget.txt')) -and (Get-Co
             if ($a -match '^[nN]') { continue }
         }
         winget uninstall --id $id -e --silent --disable-interactivity | Out-Null
-        if ($LASTEXITCODE -eq 0) { Ok "$id uninstalled" } else { Warn "$id: winget exit code $LASTEXITCODE" }
+        if ($LASTEXITCODE -eq 0) { Ok "$id uninstalled" } else { Warn "${id}: winget exit code $LASTEXITCODE" }
     }
 }
 

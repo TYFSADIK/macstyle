@@ -16,19 +16,26 @@ echo "== $PRETTY_NAME"
 case " $ID ${ID_LIKE:-} " in
     *" fedora "*)
         dnf install -y -q gnome-shell dconf dbus-daemon python3 curl tar git sudo \
-            mesa-dri-drivers ptyxis firefox glib2 which findutils procps-ng >/dev/null
+            mesa-dri-drivers ptyxis firefox glib2 which findutils procps-ng xorg-x11-server-Xwayland >/dev/null
         ;;
     *" debian "* | *" ubuntu "*)
         export DEBIAN_FRONTEND=noninteractive
+        pkgs=(gnome-shell dconf-cli dbus dbus-user-session python3 curl tar git sudo ca-certificates libgl1-mesa-dri
+              libglib2.0-bin xz-utils gnome-terminal procps passwd xwayland)
+        # a mirror can replace a package between update and install: refresh and try once more
         apt-get update -qq
-        apt-get install -y -qq --no-install-recommends gnome-shell dconf-cli dbus dbus-user-session python3 curl tar \
-            git sudo ca-certificates libgl1-mesa-dri libglib2.0-bin xz-utils gnome-terminal procps passwd >/dev/null
+        apt-get install -y -qq --no-install-recommends "${pkgs[@]}" >/dev/null ||
+            { apt-get update -qq && apt-get install -y -qq --no-install-recommends --fix-missing "${pkgs[@]}" >/dev/null; }
         ;;
 esac
 id tester >/dev/null 2>&1 || useradd -m -s /bin/bash tester
 # what a real login provides: X11's socket folder (for XWayland) and the user's runtime folder
 mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 mkdir -p /run/user/1000 && chown tester:tester /run/user/1000 && chmod 700 /run/user/1000
+# ...and the system message bus, which GNOME Shell asks about the login session at start
+dbus-uuidgen --ensure
+mkdir -p /run/dbus
+[ -S /run/dbus/system_bus_socket ] || dbus-daemon --system --fork
 echo 'tester ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/tester
 cp -a "$REPO" /home/tester/macstyle
 chown -R tester:tester /home/tester/macstyle

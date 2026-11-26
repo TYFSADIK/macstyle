@@ -75,7 +75,8 @@ gnome-shell --headless --unsafe-mode --virtual-monitor 1440x900 > /tmp/shell.log
 shell=$!
 for _ in $(seq 1 60); do gdbus introspect --session --dest org.gnome.Shell --object-path /org/gnome/Shell >/dev/null 2>&1 && break; sleep 1; done
 sleep 15
-python3 tests/verify.py extensions
+ext_status=0
+python3 tests/verify.py extensions || ext_status=$?   # go on: the uninstall must be checked too
 gdbus call --session --dest org.gnome.Shell.Screenshot --object-path /org/gnome/Shell/Screenshot \
     --method org.gnome.Shell.Screenshot.Screenshot false false /tmp/desktop-light.png >/dev/null || true
 gsettings set org.gnome.desktop.interface color-scheme prefer-dark
@@ -88,6 +89,7 @@ wait "$shell" 2>/dev/null || true
 
 ./uninstall.sh --yes
 python3 tests/verify.py uninstalled /tmp/before.ini
+exit "$ext_status"
 EOF
 chown tester:tester /home/tester/run.sh
 status=0

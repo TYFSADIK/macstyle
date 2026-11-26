@@ -84,8 +84,10 @@ def shell_state(uuid):
     nothing in a description can confuse the parsing. 1 active, 2 inactive, 3 error, 4 out of date,
     6 initialized (loaded, not enabled in this session mode); None: GNOME Shell does not know it."""
     import re
-    out = run("gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path",
-              "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.GetExtensionInfo", uuid)
+    # GNOME Shell has served this on its own name since 3.x (org.gnome.Shell.Extensions as a bus
+    # name exists only from GNOME 49)
+    out = run("gdbus", "call", "--session", "--dest", "org.gnome.Shell", "--object-path",
+              "/org/gnome/Shell", "--method", "org.gnome.Shell.Extensions.GetExtensionInfo", uuid)
     m = re.search(r"'state': <([0-9.]+)>", out)
     return int(float(m.group(1))) if m else None
 

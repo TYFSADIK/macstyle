@@ -26,6 +26,9 @@ case " $ID ${ID_LIKE:-} " in
         ;;
 esac
 id tester >/dev/null 2>&1 || useradd -m -s /bin/bash tester
+# what a real login provides: X11's socket folder (for XWayland) and the user's runtime folder
+mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+mkdir -p /run/user/1000 && chown tester:tester /run/user/1000 && chmod 700 /run/user/1000
 echo 'tester ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/tester
 cp -a "$REPO" /home/tester/macstyle
 chown -R tester:tester /home/tester/macstyle
@@ -35,8 +38,8 @@ gnome-shell --version
 cat > /home/tester/run.sh <<'EOF'
 set -Eeuo pipefail
 cd ~/macstyle
-export XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_TYPE=wayland XDG_RUNTIME_DIR=/tmp/rt-tester
-mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
+export XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_TYPE=wayland XDG_RUNTIME_DIR="/run/user/$(id -u)"
+[ -d "$XDG_RUNTIME_DIR" ] || { mkdir -p /tmp/rt-tester && chmod 700 /tmp/rt-tester && export XDG_RUNTIME_DIR=/tmp/rt-tester; }
 gsettings set org.gnome.desktop.interface color-scheme default
 dconf dump / > /tmp/before.ini
 ./install.sh --yes

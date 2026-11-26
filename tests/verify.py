@@ -85,7 +85,7 @@ def extensions():
         state = next((l.split(":", 1)[1].strip() for l in info.splitlines() if l.strip().startswith("State")), "?")
         if state.upper() not in ("ACTIVE", "ENABLED"):
             bad.append(f"{u} ({state})")
-    check("every extension loaded", not bad, ", ".join(bad) or "all ACTIVE")
+    check("every extension loaded", enabled and not bad, ", ".join(bad) or (f"all {len(enabled)} ACTIVE" if enabled else "none running"))
 
 
 def flat(path):

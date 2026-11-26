@@ -44,7 +44,10 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     $listed = winget list --id Seelen.SeelenUI -e --accept-source-agreements | Out-String
     Check 'Seelen UI (dock and top bar)' ($listed -match 'Seelen')
     # The prompt itself renders in a fresh PowerShell with the profile
-    $prompt = & powershell.exe -NoLogo -Command '. $PROFILE; starship prompt' 2>&1 | Out-String
+    # (native stderr is an error under Stop in Windows PowerShell 5.1, so not here)
+    $ErrorActionPreference = 'Continue'
+    $prompt = & powershell.exe -NoLogo -Command '. $PROFILE; starship prompt' 2>$null | Out-String
+    $ErrorActionPreference = 'Stop'
     Check 'the prompt renders' ($prompt.Length -gt 10) ($prompt -replace '\x1b\[[0-9;]*m', '').Trim()
 }
 

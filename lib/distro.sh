@@ -32,8 +32,8 @@ desktop_packages() {
 # To build the WhiteSur shell theme for GNOME versions it does not ship prebuilt for.
 theme_build_packages() {
     case "$DISTRO_FAMILY" in
-        fedora) echo sassc glib2-devel ;;
-        debian) echo sassc libglib2.0-dev-bin ;;
+        fedora) echo sassc glib2-devel libxml2 ;;
+        debian) echo sassc libglib2.0-dev-bin libxml2-utils ;;
     esac
 }
 

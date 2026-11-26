@@ -264,7 +264,8 @@ extensions() {
         done < <(python3 -I "$REPO/lib/fetch-extension.py" "$GNOME_MAJOR" "$tmp" "${fetch[@]}")
         # No magnifying dock for this GNOME: Dash to Dock, set up like a Mac's dock.
         if [[ " ${fetch[*]} " == *" dash2dock-lite@icedman.github.com "* && " ${got[*]} " != *" dash2dock-lite@icedman.github.com "* ]]; then
-            if python3 -I "$REPO/lib/fetch-extension.py" "$GNOME_MAJOR" "$tmp" dash-to-dock@micxgx.gmail.com | grep -q '^ok'; then
+            local d2d; d2d="$(python3 -I "$REPO/lib/fetch-extension.py" "$GNOME_MAJOR" "$tmp" dash-to-dock@micxgx.gmail.com)"
+            if [[ "$d2d" == ok* ]]; then
                 put "$tmp/dash-to-dock@micxgx.gmail.com" "$EXT_DIR/dash-to-dock@micxgx.gmail.com"
                 got+=(dash-to-dock@micxgx.gmail.com)
                 count=$((count + 1))
@@ -448,7 +449,7 @@ settings() {
     dconf load / < "$REPO/settings/extensions.dconf"
     # The top bar's menu shows this distribution's logo
     local logo=start-here-symbolic
-    if find /usr/share/icons /usr/share/pixmaps "$ICONS_DIR" -name "distributor-logo-$DISTRO_ID*" -print -quit 2>/dev/null | grep -q .; then
+    if [[ -n "$(find /usr/share/icons /usr/share/pixmaps "$ICONS_DIR" -name "distributor-logo-$DISTRO_ID*" -print -quit 2>/dev/null)" ]]; then
         logo="distributor-logo-$DISTRO_ID"
     fi
     dconf write /org/gnome/shell/extensions/appmenu/menu-icon "'$logo'"

@@ -8,13 +8,14 @@ set -Eeuo pipefail
 REPO="$(cd -- "$(dirname -- "$0")/.." && pwd)"
 OUT="$REPO/tests/out"
 mkdir -p "$OUT"
+# shellcheck source=/dev/null
 . /etc/os-release
 echo "== $PRETTY_NAME"
 
 # 1. GNOME Shell, a session bus, software rendering, and a normal user with sudo
 case " $ID ${ID_LIKE:-} " in
     *" fedora "*)
-        dnf install -y -q gnome-shell gnome-shell-extensions dconf dbus-daemon python3 curl tar git sudo \
+        dnf install -y -q gnome-shell dconf dbus-daemon python3 curl tar git sudo \
             mesa-dri-drivers ptyxis firefox glib2 which findutils procps-ng >/dev/null
         ;;
     *" debian "* | *" ubuntu "*)

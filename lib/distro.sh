@@ -67,7 +67,9 @@ pkg_available() {
                 sudo apt-get update -qq >/dev/null 2>&1 || true
                 APT_UPDATED=1
             fi
-            apt-cache policy "$1" 2>/dev/null | grep -q 'Candidate: [0-9]'
+            # (capture first: with pipefail, grep -q closing the pipe early would fail the check)
+            local policy; policy="$(apt-cache policy "$1" 2>/dev/null || true)"
+            [[ "$policy" =~ Candidate:\ [0-9] ]]
             ;;
     esac
 }

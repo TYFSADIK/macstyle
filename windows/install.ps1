@@ -212,7 +212,9 @@ function Install-Terminal {
     $policy = Get-ExecutionPolicy -Scope CurrentUser
     if ($policy -notin @('RemoteSigned', 'Unrestricted', 'Bypass')) {
         Save-Value 'executionpolicy' ([string]$policy)
-        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+        # Throws even on success when a narrower scope (this run's -ExecutionPolicy Bypass) overrides it
+        try { Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force } catch [System.Security.SecurityException] { }
+        if ((Get-ExecutionPolicy -Scope CurrentUser) -ne 'RemoteSigned') { Fail 'could not let PowerShell run your profile (execution policy).' }
         Ok 'PowerShell may run your profile (RemoteSigned, for you only)'
     }
 

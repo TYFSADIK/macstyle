@@ -38,7 +38,7 @@ foreach ($p in @((Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profil
 Ok 'the macstyle lines are out (your own lines stay)'
 $policy = Get-SavedValue 'executionpolicy'
 if ($policy) {
-    Set-ExecutionPolicy $policy -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+    try { Set-ExecutionPolicy $policy -Scope CurrentUser -Force } catch [System.Security.SecurityException] { }
     Ok "execution policy back to $policy"
 }
 

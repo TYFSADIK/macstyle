@@ -1,131 +1,157 @@
 # macstyle
 
-**A macOS-like desktop for Fedora GNOME, in one command.**
+**A macOS-like desktop for Fedora, Ubuntu, Debian and Windows, in one command.**
 
-Created by **Hilali Abdel**.
+[![test](https://github.com/TYFSADIK/macstyle/actions/workflows/test.yml/badge.svg)](https://github.com/TYFSADIK/macstyle/actions/workflows/test.yml)
+![GNOME 43 to 51](https://img.shields.io/badge/GNOME-43%20to%2051-4a86cf)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20and%2011-0078d4)
+[![licence: GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE)
+
+Maintained by **Taki Sadik**.
 
 ![The same desktop in light and dark: Files, the top bar with the app's menus, and the dock](docs/screenshots/desktop.jpg)
 
-macstyle gives Fedora's GNOME desktop the macOS features that make daily work easier: a dock, the app's menus in the top bar, and the window buttons in the top bar when a window is maximized. The look is its own: a soft light theme, and a Dark Style that switches everything at once.
+macstyle gives your desktop the macOS features that make daily work easier: a dock, the app's menus in the top bar, window buttons on the left, Quick Look, and a Dark Style that switches everything at once, wallpaper included. Everything it changes is saved first, and one command puts it all back.
 
 ## Install
 
-Open a terminal and run:
+### Linux: Fedora, Ubuntu, Debian
+
+Open a terminal inside your GNOME desktop and run:
 
 ```bash
-git clone https://github.com/abdel-hilali/fedora-gnome-macos-customization
-cd fedora-gnome-macos-customization
+git clone https://github.com/TYFSADIK/macstyle
+cd macstyle
 ./install.sh
 ```
 
-- Type it without `sudo`. It asks for your password itself, once, to install a few small Fedora packages and to set a Firefox default.
-- It takes about a minute. It downloads the MacTahoe icon theme (about 10 MB), a terminal font (about 7 MB) and Powerlevel10k, the prompt engine.
-- When it is done, **log out and log back in**. GNOME starts new extensions only at login.
+Then **log out and log back in**: GNOME starts new extensions only at login.
 
-You need **Fedora 44 Workstation (GNOME 50)** or **Fedora 45 Workstation (GNOME 51)**. The script picks the right extensions for your version. Run the script from a terminal inside your GNOME desktop. If `git` is missing: `sudo dnf install git`.
+- Type it without `sudo`. It asks for your password itself, once, for a few small packages and a Firefox setting.
+- It takes a minute or two. It downloads the MacTahoe icon theme, a terminal font and Powerlevel10k, and on older GNOME versions the extensions and theme made for that version.
+- If `git` is missing: `sudo dnf install git` (Fedora) or `sudo apt install git` (Ubuntu, Debian).
 
-To undo everything, run `./uninstall.sh` (see [Uninstall](#uninstall)).
+| Distribution | GNOME | Notes |
+|---|---|---|
+| Fedora 44, 45 | 50, 51 | everything, with the bundled, tested extensions |
+| Fedora 42, 43 | 48, 49 | extensions from extensions.gnome.org for that version |
+| Ubuntu 26.04 LTS, 26.10 | 50, 51 | everything; Ubuntu Dock is switched off |
+| Ubuntu 24.04 LTS | 46 | the theme is built for GNOME 46; dock without magnification |
+| Debian 13 | 48 | Ptyxis is installed as the terminal (Console cannot be styled) |
+| Debian 12 | 43 | no top-bar app menus (AppMenu needs GNOME 45) |
+
+Any GNOME from 43 up works: for each extension, the install uses the bundled copy if it declares your GNOME version, otherwise downloads the release made for it, and skips it with a message if there is none. Nothing made for another version is ever switched on.
+
+### Windows 10 and 11
+
+Download the repository (**Code > Download ZIP**, then unzip) or clone it, open PowerShell in the folder (not as administrator) and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\windows\install.ps1
+```
+
+Then sign out and back in once.
 
 ## What you get
 
-### Menus and window buttons in the top bar
+### Linux
+
+#### Menus and window buttons in the top bar
 
 ![VS Code maximized: its window buttons, its menus and an open File menu in the top bar](docs/screenshots/menus.png)
 
-- The top bar shows the menus of the app you are using (File, Edit, View and the rest). This works for VS Code, Chrome, Firefox, LibreOffice and other apps that publish their menus.
-- Maximize a window and its close, minimize and maximize buttons move into the top bar, so the window gets the whole screen.
+- The top bar shows the menus of the app you are using (File, Edit, View...), for VS Code, Chrome, Firefox, LibreOffice and other apps that publish their menus (GNOME 45 and newer).
+- Maximize a window and its close, minimize and maximize buttons move into the top bar.
 - Window buttons sit on the left, as on a Mac.
-- Apps you install later follow too. A small background service sets up every Chromium or Electron app (Chrome, Brave, VS Code, Discord and others) when it is installed or updated.
+- Apps you install later follow too: a small background service sets up every Chromium or Electron app (Chrome, Brave, VS Code, Discord...) when it is installed or updated.
 
-### A dock that magnifies
+#### A dock that magnifies
 
 ![The dock, with the Files icon magnified under the pointer](docs/screenshots/dock.png)
 
-Icons grow gently under the pointer (1.3×), on a translucent dock that steps aside when a window needs the space.
+Icons grow gently under the pointer, on a translucent dock that steps aside when a window needs the space. Where no magnifying dock exists for your GNOME version (GNOME 43 and 44), Dash to Dock is set up the same way without magnification.
 
-### Downloads fan
+#### Downloads fan
 
 ![The Downloads fan: the newest files fanned out above the dock, with thumbnails](docs/screenshots/downloads-fan.jpg)
 
-Click **Downloads** in the dock and your newest files fan out, with thumbnails. Click a file to open it. The dock icon shows your newest download sticking out of the folder. Right-click it for *Open Downloads Folder*, *Open Most Recent Download* and *Show Most Recent in Files*.
+Click **Downloads** in the dock and your newest files fan out, with thumbnails (GNOME 50 and 51; on older versions the icon opens the folder). Right-click it for *Open Downloads Folder*, *Open Most Recent Download* and *Show Most Recent in Files*.
 
-Downloads Fan is a GNOME extension made for macstyle.
-
-### Dark Style switches everything
+#### Dark Style switches everything
 
 | Light | Dark |
 |---|---|
 | ![The desktop with Dark Style off](docs/screenshots/light.jpg) | ![The desktop with Dark Style on](docs/screenshots/dark.jpg) |
 
-Turn on **Dark Style** in Quick Settings and everything follows at once: apps, top bar, dock, icons, window shadows and the wallpaper (each wallpaper has a day and a night picture). The light theme is a softer WhiteSur Light, gentler on the eyes than pure white.
+Turn on **Dark Style** in Quick Settings and apps, top bar, dock, icons, window shadows, the terminal and the wallpaper all follow (each wallpaper has a day and a night picture).
 
-### A terminal that looks the part
+#### A terminal that looks the part
 
-![The terminal in light and dark: the Fedora logo with system info, round pills in the prompt, ls with icons, an error pill and a grey suggestion](docs/screenshots/terminal.jpg)
+![The terminal in light and dark: the distribution logo with system info, round pills in the prompt, ls with icons](docs/screenshots/terminal.jpg)
 
-- Each new terminal window opens with the Fedora logo and a short system summary.
+- Each new terminal opens with your distribution's logo and a short system summary.
 - The prompt is a row of round pills: the folder, the git branch (green when clean, amber with changes), and on the right the time, an error pill when a command fails, and how long a slow command took.
-- As you type, a grey suggestion from your history appears (press → to take it), and commands turn green when they exist and red when they don't.
-- Ctrl+R searches your history as you type, `z name` jumps to a folder you used before, and `ls` shows icons with folders first.
-- The window is see-through, with the desktop blurred behind it, and it switches with Dark Style like everything else. VS Code's terminal gets the same prompt and font.
+- Grey suggestions from your history as you type, green and red commands, Ctrl+R history search, `z name` to jump to a folder, `ls` with icons.
+- Ptyxis (Fedora, Ubuntu 25.10+, Debian 13) and GNOME Terminal (Ubuntu 24.04) both get the colours, the font and a see-through window, in light and dark.
 
-### And also
+#### And also
 
-- A blurred, translucent top bar and dock.
-- Rounded corners on every window, older X11 apps included.
-- With two monitors, the second top bar matches the main one and shows the same menus.
-- Six day-and-night wallpaper pairs from KDE, in Settings › Appearance. "Mountain" is set.
-- An Apps menu in the top bar, Alt+Tab as a cover flow, a "magic lamp" minimize effect, desktop icons, a clipboard history in the top bar, Caffeine to keep the screen awake, and the option of a video on the lock screen.
+Quick Look (press Space on a file in Files), a blurred translucent top bar and dock, rounded corners on every window, a matching second top bar on a second monitor, Alt+Tab as a cover flow, a "magic lamp" minimize, desktop icons, clipboard history, Caffeine, and six day-and-night wallpaper pairs from KDE in Settings > Appearance.
+
+### Windows
+
+- **A dock and a top bar**, from Seelen UI (open source).
+- **Quick Look**: press Space on a file in File Explorer to preview it (QuickLook).
+- **Spotlight**: Alt+Space searches apps, files and more (PowerToys).
+- **Dark mode on a schedule** with a tray switch (Auto Dark Mode), and **wallpapers that follow it**: the day picture in light mode, the night one in dark mode.
+- **The macOS cursor**, the **Inter** font (close to SF Pro) and **JetBrains Mono** with icons.
+- **The same terminal**: Windows Terminal with the macstyle colours (light and dark), see-through, and PowerShell with the round-pill prompt (Starship), grey suggestions, `z` jumps, `ls` with icons and fastfetch.
+- Taskbar icons centred, the macOS blue as accent colour.
+
+Windows cannot move window buttons to the left or put an app's menus in the top bar; macstyle does not pretend to.
 
 ## What the install changes
 
-Everything goes into your home folder, except the packages and one Firefox setting.
+**Linux.** Everything goes into your home folder, except the packages and one Firefox setting: GNOME extensions in `~/.local/share/gnome-shell/extensions`; WhiteSur themes in `~/.themes`; MacTahoe icons and cursor in `~/.local/share/icons`; wallpapers; two small background services (systemd user units: `macstyle-darkswitch` follows Dark Style, `macstyle-appfollow` sets up Chromium and Electron apps); launcher copies so Chromium, Electron apps and Firefox run as X11 apps whose menus reach the top bar; a Firefox default in `/etc/firefox/policies/policies.json` (Debian's Firefox ESR: `/usr/lib/firefox-esr/distribution/policies.json`); for the terminal, two marked blocks in `~/.zshrc` and configs in `~/.config`. Your login shell does not change: the terminal app runs zsh.
 
-- **GNOME extensions:** 17 extensions are copied to `~/.local/share/gnome-shell/extensions`, with their settings, and switched on. Two more come from Fedora packages (Apps Menu and Background Logo). Other docks (Dash to Dock, Ubuntu Dock, Dash2Dock Lite) are switched off.
-- **Themes:** WhiteSur Light and WhiteSur Dark, plus a generated `WhiteSur-Light-soft`, in `~/.themes`. MacTahoe icons and cursor go in `~/.local/share/icons`. The file `~/.config/gtk-4.0/gtk.css` makes GTK 4 apps follow light and dark.
-- **Wallpapers:** in `~/.local/share/backgrounds/macstyle`.
-- **Two small background services** (systemd user units). `macstyle-darkswitch` follows Dark Style. `macstyle-appfollow` sets up Chromium and Electron apps when they are installed.
-- **Apps:** Chromium browsers and Electron apps run as X11 apps with GNOME's title bar, through launcher copies in `~/.local/share/applications`, so their menus can reach the top bar. VS Code gets the native title bar and colours that match it. Firefox also runs as an X11 app, with its global menu switched on. That is a default in `/etc/firefox/policies/policies.json`, which you can still change in `about:config`.
-- **Terminal:** the terminal app (Ptyxis) runs zsh with a macstyle colour palette, the JetBrainsMono Nerd Font and a see-through background. Your login shell stays as it is. `~/.zshrc` gets two marked blocks, and if you have no `~/.zshrc` a new one is made. The prompt files go in `~/.config/macstyle/zsh`, and Powerlevel10k goes in `~/.local/share/macstyle` (unless you use your own). The font goes in `~/.local/share/fonts`. The configs of fastfetch and lsd go in `~/.config`.
-- **Packages** (dnf): `libdbusmenu`, `libdbusmenu-gtk3`, `gnome-shell-extension-apps-menu`, `gnome-shell-extension-background-logo`, and for the terminal `zsh`, `zsh-autosuggestions`, `zsh-syntax-highlighting`, `fastfetch`, `lsd`, `fzf`, `zoxide`.
-- **Settings:** window buttons on the left; themes, icons, cursor and wallpaper; workspaces on all monitors; the Downloads icon in the dock.
+Packages: the top-bar menu libraries (libdbusmenu), the Apps Menu extension, Sushi (Quick Look), and for the terminal zsh, zsh-autosuggestions, zsh-syntax-highlighting, fzf, zoxide, fastfetch and lsd (downloaded from their projects where the distribution does not package them). GNOME 47 and older also get `sassc` to build the theme.
 
-Before changing anything, the first run saves your settings and every file it replaces in `~/.local/state/macstyle/original/`. Running `./install.sh` again is safe: it keeps that first copy.
+**Windows.** Apps with winget; fonts for your account only (no administrator); the cursor, wallpaper, accent and taskbar settings in your part of the registry; a hidden dark-mode watcher started from your Startup folder; a marked block in your PowerShell profiles; a Windows Terminal profile.
+
+Before changing anything, the first run saves your settings and every file it replaces (Linux: `~/.local/state/macstyle/original/`, Windows: `%LOCALAPPDATA%\macstyle\original\`). Running the install again is safe: it keeps that first copy.
 
 ### Options
 
-| Option | What it does |
-|---|---|
-| `-y`, `--yes` | Answer every question with its default (no prompts). |
-| `--no-packages` | Skip everything that needs `sudo`: the packages and the Firefox setting. |
-| `--no-apps` | Leave VS Code, Chrome and Firefox alone. |
-| `--no-terminal` | Leave the terminal and zsh alone. |
-| `--force` | Run on a Fedora or GNOME version macstyle is not tested on. |
-| `-h`, `--help` | Show the help. |
+| Linux | Windows | What it does |
+|---|---|---|
+| `-y`, `--yes` | `-Yes` | Answer every question with its default (no prompts). |
+| `--no-packages` | | Skip everything that needs `sudo`. |
+| `--no-apps` | `-NoApps` | Linux: leave VS Code, Chrome and Firefox alone. Windows: no dock, top bar, Quick Look, search or dark-mode apps. |
+| `--no-terminal` | `-NoTerminal` | Leave the terminal and the shell alone. |
+| `--force` | | Run on a distribution that is not Fedora, Ubuntu or Debian. |
 
 ## Uninstall
 
 ```bash
-cd fedora-gnome-macos-customization
-./uninstall.sh
+./uninstall.sh                                                    # Linux
+powershell -ExecutionPolicy Bypass -File .\windows\uninstall.ps1  # Windows
 ```
 
-It brings back the settings and files saved by the first install, removes what the install added, and stops the two services. It asks for your password if it has to remove the Firefox setting. Then log out and log back in. The Fedora packages stay installed; they are harmless.
+It brings back the settings and files saved by the first install, removes what the install added and stops the background services. Then log out and back in. On Linux the packages stay installed (they are harmless); on Windows it offers to uninstall the apps it installed (`-KeepApps` keeps them).
+
+## Tested
+
+Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13, and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension loaded, takes screenshots in light and dark, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, watcher, profiles, prompt and terminal profile, uninstalls and checks the registry is back.
 
 ## Good to know
 
-- macstyle is tested on Fedora 44 (GNOME 50) and Fedora 45 (GNOME 51). On other versions the script stops with a message; `--force` tries anyway with the extensions of the closest version.
 - Extensions start only after you log out and back in. An app that is open during the install changes the next time you start it.
-- Some apps run in X11 mode (through XWayland) so that their menus can reach the top bar. With X11 apps open, logging out takes about 5 seconds longer. This is a GNOME bug.
-- AppMenu, Multi Monitors Bar, Rounded Window Corners Reborn and Dash2Dock Motion are copies with our own fixes. extensions.gnome.org does not update them. To get our updates, run `git pull` and then `./install.sh` again.
-- Top-bar menus for Flatpak apps and Qt apps are not tested yet.
-- The terminal opens zsh, but your login shell does not change; type `bash` for bash. If you already use zsh, your `~/.zshrc` keeps all its lines and an existing Powerlevel10k setup is used, with macstyle's pills on top. `./uninstall.sh` takes the macstyle lines out again.
-- The SF Pro font is not included because of Apple's licence. If you have it installed already, macstyle uses it.
+- Some apps run as X11 apps (through XWayland) so that their menus can reach the top bar. With X11 apps open, logging out takes about 5 seconds longer (a GNOME issue).
+- AppMenu, Multi Monitors Bar, Rounded Window Corners Reborn, Unite and Dash2Dock Motion are bundled with fixes of our own ([patches/](patches/)); extensions.gnome.org does not update them. To get updates, `git pull` and run `./install.sh` again.
+- The SF Pro font is not included because of Apple's licence; if you have it, macstyle uses it on Linux.
 
 ## Credits and licence
 
-macstyle is built on the work of many people: the authors of the GNOME extensions, the WhiteSur GTK theme and the MacTahoe icon theme by vinceliuice, and the KDE wallpaper artists. [CREDITS.md](CREDITS.md) lists each one, its licence and what we changed.
+macstyle is built on the work of many people: the authors of the GNOME extensions, the WhiteSur GTK theme and MacTahoe icons by vinceliuice, the KDE wallpaper artists, and on Windows Seelen UI, QuickLook, PowerToys, Auto Dark Mode, Starship and the apple_cursor project. [CREDITS.md](CREDITS.md) lists each one, its licence and what we changed.
 
 macstyle's own code is under the [GNU General Public License 3.0](LICENSE). The bundled parts keep their own licences.
-
-Created by **Hilali Abdel** :) 

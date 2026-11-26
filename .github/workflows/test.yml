@@ -1,0 +1,53 @@
+name: test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck -x install.sh uninstall.sh lib/*.sh bin/macstyle-darkswitch bin/macstyle-appfollow libexec/downloads-stack tests/ci-linux.sh || true
+      - name: ShellCheck (must pass)
+        run: shellcheck -x install.sh uninstall.sh lib/distro.sh lib/common.sh bin/macstyle-darkswitch tests/ci-linux.sh
+      - name: Python
+        run: python3 -m py_compile lib/*.py tests/verify.py
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["fedora:43", "fedora:44", "ubuntu:24.04", "ubuntu:26.04", "debian:12", "debian:13"]
+    runs-on: ubuntu-latest
+    container: { image: "${{ matrix.image }}", options: --privileged }
+    steps:
+      - name: Tools for checkout
+        run: |
+          if command -v dnf >/dev/null; then dnf install -y -q git tar; else apt-get update -qq && apt-get install -y -qq git ca-certificates; fi
+      - uses: actions/checkout@v4
+      - name: Install, check, start GNOME Shell headless, uninstall, check
+        run: bash tests/ci-linux.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "linux-${{ strategy.job-index }}"
+          path: tests/out
+          if-no-files-found: ignore
+
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $r = Invoke-ScriptAnalyzer -Path windows -Recurse -Severity Error
+          $r | Format-Table -AutoSize
+          if ($r) { exit 1 }
+      - name: Install, check, uninstall, check
+        shell: powershell
+        run: .\tests\ci-windows.ps1

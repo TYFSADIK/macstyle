@@ -12,7 +12,7 @@ Every part keeps its own licence. The licence texts are in this repository:
 
 ## GNOME Shell extensions
 
-These are copied from the projects below. [extensions/](extensions/) holds the ones that work on GNOME 50 and 51; [extensions-50/](extensions-50/) and [extensions-51/](extensions-51/) hold the ones that need a different copy for each version, and the install picks the folder for your GNOME. Five of them carry our own changes; each change is also kept as a patch in [patches/](patches/).
+These are copied from the projects below. [extensions/](extensions/) holds copies that work on GNOME 45 to 51; [extensions-50/](extensions-50/) and [extensions-51/](extensions-51/) hold the ones that need a different copy for each version. On a GNOME version a copy does not declare (Ubuntu 24.04, Debian 12 and 13, older Fedora), the install downloads the same extension from extensions.gnome.org or its project's GitHub releases instead, checked for that version; those downloads are not part of this repository. Five of them carry our own changes; each change is also kept as a patch in [patches/](patches/).
 
 | Extension | Project | Version | Licence |
 |---|---|---|---|
@@ -68,8 +68,27 @@ The day and night pictures were scaled and cropped from 5120×2880 PNG to 3840×
 
 ## macstyle's own code
 
-`install.sh`, `uninstall.sh`, [lib/](lib/), [bin/](bin/), [libexec/](libexec/), [systemd/](systemd/), [settings/](settings/), [terminal/](terminal/) (except `p10k-base.zsh`, see above) and the Downloads Fan extension, by Hilali Abdel, under the GNU General Public License 3.0 ([LICENSE](LICENSE)). The Downloads Fan files are marked GPL-2.0-or-later, which allows GPL-3.0.
+`install.sh`, `uninstall.sh`, [lib/](lib/), [bin/](bin/), [libexec/](libexec/), [systemd/](systemd/), [settings/](settings/), [terminal/](terminal/) (except `p10k-base.zsh`, see above), [windows/](windows/), [tests/](tests/) and the Downloads Fan extension are macstyle's own, under the GNU General Public License 3.0 ([LICENSE](LICENSE)). The Downloads Fan files are marked GPL-2.0-or-later, which allows GPL-3.0.
 
 ## Not included
 
 The SF Pro font belongs to Apple and is not shared here. macstyle uses it only if it is already installed on the computer.
+
+## Downloaded by the install, not in this repository
+
+Linux:
+
+- Extensions for GNOME versions the bundled copies do not cover, from <https://extensions.gnome.org> (each under its own licence, listed on its page) and Unite from <https://github.com/hardpixel/unite-shell/releases> (GPL-3.0).
+- **WhiteSur GTK theme** for GNOME 47 and older, built by its own installer: <https://github.com/vinceliuice/WhiteSur-gtk-theme>, commit `d578265`, MIT.
+- **fastfetch** (<https://github.com/fastfetch-cli/fastfetch>, MIT) and **lsd** (<https://github.com/lsd-rs/lsd>, Apache-2.0), only on distributions that do not package them.
+
+Windows (installed with winget from their publishers):
+
+- **Seelen UI**, the dock and top bar: <https://github.com/eythaann/Seelen-UI>, AGPL-3.0.
+- **QuickLook**: <https://github.com/QL-Win/QuickLook>, GPL-3.0.
+- **PowerToys**: <https://github.com/microsoft/PowerToys>, MIT.
+- **Auto Dark Mode** (Microsoft Store): <https://github.com/AutoDarkMode/Windows-Auto-Night-Mode>, GPL-3.0.
+- **Starship** (ISC), **fastfetch** (MIT), **zoxide** (MIT), **fzf** (MIT), **lsd** (Apache-2.0).
+- **macOS cursors** by ful1e5: <https://github.com/ful1e5/apple_cursor>, release v2.0.1, GPL-3.0.
+- **Inter** by Rasmus Andersson: <https://github.com/rsms/inter>, v4.1, SIL Open Font License 1.1.
+- **JetBrains Mono Nerd Font**: <https://github.com/ryanoasis/nerd-fonts>, v3.5.1, SIL Open Font License 1.1.

@@ -141,7 +141,20 @@ It brings back the settings and files saved by the first install, removes what t
 
 ## Tested
 
-Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13, and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension loaded, takes screenshots in light and dark, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, watcher, profiles, prompt and terminal profile, uninstalls and checks the registry is back.
+Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13, and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension is running, takes a screenshot, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, dark-mode watcher, PowerShell profiles, prompt and Windows Terminal profile, uninstalls and checks the registry is back.
+
+![The macstyle desktop on Fedora 44 and 43, Ubuntu 26.04 and 24.04, and Debian 13 and 12, each with the top bar and the dock, as captured by CI](docs/screenshots/tested.jpg)
+
+| | GNOME | Extensions running | Dock |
+|---|---|---|---|
+| Fedora 44 | 50 | 19 of 19 | Dash2Dock Motion |
+| Fedora 43 | 49 | 18 of 18 | Dash2Dock Lite |
+| Ubuntu 26.04 | 50 | 18 of 18 | Dash2Dock Motion |
+| Ubuntu 24.04 | 46 | 17 of 17 | Dash2Dock Lite |
+| Debian 13 | 48 | 17 of 17 | Dash2Dock Lite |
+| Debian 12 | 43 | 12 of 12 | Dash2Dock Lite |
+
+Each one uninstalls back to the same settings it started with. The screenshots come from a headless GNOME Shell in a container; they show the top bar and the dock, not a live login with apps open.
 
 ## Good to know
 

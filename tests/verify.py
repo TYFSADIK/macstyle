@@ -45,6 +45,9 @@ def installed():
         if major not in [str(v).split(".")[0] for v in meta.get("shell-version", [])]:
             wrong.append(u)
     check("every extension declares this GNOME version", not wrong, ", ".join(wrong) or f"GNOME {major}")
+    ding = os.path.join(EXT, "ding@rastersoft.com", "app", "ding.js")
+    if "ding@rastersoft.com" in uuids:
+        check("desktop icons can start (ding.js executable)", os.access(ding, os.X_OK))
     docks = [u for u in uuids if u.startswith(("dash2dock", "dash-to-dock"))]
     check("one dock", len(docks) == 1, " ".join(docks))
     enabled = gget("org.gnome.shell", "enabled-extensions")

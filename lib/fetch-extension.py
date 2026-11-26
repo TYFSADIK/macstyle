@@ -83,6 +83,12 @@ def install(data, dest):
     os.makedirs(dest)
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         z.extractall(dest)
+        # extractall drops the permission bits: put back the executable ones (Desktop Icons NG
+        # starts app/ding.js as a program, and fails with "Permission denied" without them)
+        for info in z.infolist():
+            mode = (info.external_attr >> 16) & 0o777
+            if mode and not info.is_dir():
+                os.chmod(os.path.join(dest, info.filename), mode)
     schemas = os.path.join(dest, "schemas")
     if os.path.isdir(schemas):
         subprocess.run(["glib-compile-schemas", schemas], check=False, capture_output=True)

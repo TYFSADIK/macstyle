@@ -36,9 +36,9 @@ Then **log out and log back in**: GNOME starts new extensions only at login.
 | Fedora 44, 45 | 50, 51 | everything, with the bundled, tested extensions |
 | Fedora 42, 43 | 48, 49 | extensions from extensions.gnome.org for that version |
 | Ubuntu 26.04 LTS, 26.10 | 50, 51 | everything; Ubuntu Dock is switched off |
-| Ubuntu 24.04 LTS | 46 | the theme is built for GNOME 46; dock without magnification |
+| Ubuntu 24.04 LTS | 46 | the theme is built for GNOME 46 |
 | Debian 13 | 48 | Ptyxis is installed as the terminal (Console cannot be styled) |
-| Debian 12 | 43 | no top-bar app menus (AppMenu needs GNOME 45) |
+| Debian 12 | 43 | no top-bar app menus (AppMenu needs GNOME 45); the theme is built for GNOME 43 |
 
 Any GNOME from 43 up works: for each extension, the install uses the bundled copy if it declares your GNOME version, otherwise downloads the release made for it, and skips it with a message if there is none. Nothing made for another version is ever switched on.
 
@@ -69,7 +69,7 @@ Then sign out and back in once.
 
 ![The dock, with the Files icon magnified under the pointer](docs/screenshots/dock.png)
 
-Icons grow gently under the pointer, on a translucent dock that steps aside when a window needs the space. Where no magnifying dock exists for your GNOME version (GNOME 43 and 44), Dash to Dock is set up the same way without magnification.
+Icons grow gently under the pointer, on a translucent dock that steps aside when a window needs the space: Dash2Dock Motion on GNOME 50 and 51, Dash2Dock Lite on GNOME 43 to 49. If neither exists for your GNOME version, Dash to Dock is set up the same way, without magnification.
 
 #### Downloads fan
 

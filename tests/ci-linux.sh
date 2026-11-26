@@ -66,6 +66,7 @@ cd ~/macstyle
 export XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_TYPE=wayland XDG_RUNTIME_DIR="/run/user/$(id -u)"
 [ -d "$XDG_RUNTIME_DIR" ] || { mkdir -p /tmp/rt-tester && chmod 700 /tmp/rt-tester && export XDG_RUNTIME_DIR=/tmp/rt-tester; }
 gsettings set org.gnome.desktop.interface color-scheme default
+gsettings set org.gnome.shell welcome-dialog-last-shown-version '999'   # no welcome tour in the screenshots
 dconf dump / > /tmp/before.ini
 ./install.sh --yes
 python3 tests/verify.py installed /tmp/before.ini
@@ -77,10 +78,18 @@ for _ in $(seq 1 60); do gdbus introspect --session --dest org.gnome.Shell --obj
 sleep 15
 ext_status=0
 python3 tests/verify.py extensions || ext_status=$?   # go on: the uninstall must be checked too
+# the desktop as after a login: overview closed, banners gone; then light and dark
+shell_eval() { gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval "$1" >/dev/null 2>&1 || true; }
+shell_eval 'Main.overview.hide(); Main.messageTray._notificationQueue?.slice().forEach(n => n.destroy()); Main.messageTray._bannerBin?.hide();'
+sleep 3
 gdbus call --session --dest org.gnome.Shell.Screenshot --object-path /org/gnome/Shell/Screenshot \
     --method org.gnome.Shell.Screenshot.Screenshot false false /tmp/desktop-light.png >/dev/null || true
 gsettings set org.gnome.desktop.interface color-scheme prefer-dark
-sleep 4
+# what macstyle-darkswitch does at a real login (no systemd user session in the container)
+sh "$HOME/.local/bin/macstyle-darkswitch" >/dev/null 2>&1 &
+switch=$!
+sleep 6
+kill "$switch" 2>/dev/null || true
 gdbus call --session --dest org.gnome.Shell.Screenshot --object-path /org/gnome/Shell/Screenshot \
     --method org.gnome.Shell.Screenshot.Screenshot false false /tmp/desktop-dark.png >/dev/null || true
 gsettings set org.gnome.desktop.interface color-scheme default

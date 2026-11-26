@@ -78,19 +78,16 @@ def installed():
         check("GNOME Terminal palette", pal.count("#") == 16, pal[:60])
 
 
-def shell_states():
-    """Each extension's state, straight from GNOME Shell over D-Bus (the gnome-extensions tool is a
-    separate package on Debian and Ubuntu). States: 1 active, 2 inactive, 3 error, 4 out of date,
-    6 initialized (loaded, not enabled in this session mode)."""
+def shell_state(uuid):
+    """One extension's state, straight from GNOME Shell over D-Bus (the gnome-extensions tool is a
+    separate package on Debian and Ubuntu). One extension per call, so the reply has one state and
+    nothing in a description can confuse the parsing. 1 active, 2 inactive, 3 error, 4 out of date,
+    6 initialized (loaded, not enabled in this session mode); None: GNOME Shell does not know it."""
     import re
     out = run("gdbus", "call", "--session", "--dest", "org.gnome.Shell.Extensions", "--object-path",
-              "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.ListExtensions")
-    states = {}
-    for m in re.finditer(r"'([^']+)': \{'uuid': <'[^']+'>(.*?)\}", out):
-        st = re.search(r"'state': <([0-9.]+)>", m.group(2))
-        if st:
-            states[m.group(1)] = int(float(st.group(1)))
-    return states
+              "/org/gnome/Shell/Extensions", "--method", "org.gnome.Shell.Extensions.GetExtensionInfo", uuid)
+    m = re.search(r"'state': <([0-9.]+)>", out)
+    return int(float(m.group(1))) if m else None
 
 
 NAMES = {1: "ACTIVE", 2: "INACTIVE", 3: "ERROR", 4: "OUT OF DATE", 6: "INITIALIZED"}
@@ -98,8 +95,8 @@ NAMES = {1: "ACTIVE", 2: "INACTIVE", 3: "ERROR", 4: "OUT OF DATE", 6: "INITIALIZ
 
 def extensions():
     enabled = [u for u in gget("org.gnome.shell", "enabled-extensions").strip("[]").replace("'", "").split(", ") if u]
-    states = shell_states()
-    running = [u for u in enabled if u in states]
+    states = {u: shell_state(u) for u in enabled}
+    running = [u for u in enabled if states[u] is not None]
     check("GNOME Shell sees the extensions", len(running) >= 8, f"{len(running)} of {len(enabled)} enabled")
     bad = []
     for u in enabled:

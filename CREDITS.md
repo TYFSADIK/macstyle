@@ -49,7 +49,7 @@ These five copies have no version number in `metadata.json`, so extensions.gnome
 ## Themes, icons and cursor
 
 - **WhiteSur GTK theme** by vinceliuice: <https://github.com/vinceliuice/WhiteSur-gtk-theme>, commit `d578265`, MIT ([themes/COPYING.WhiteSur](themes/COPYING.WhiteSur)). `WhiteSur-Light` and `WhiteSur-Dark` were built with the theme's own installer. Our change: the highlight of top-bar menus in the shell theme ([patches/whitesur-menu-highlight.diff](patches/whitesur-menu-highlight.diff)). The install also makes `WhiteSur-Light-soft`, a copy of `WhiteSur-Light` with softer backgrounds ([lib/make-soft-theme.sh](lib/make-soft-theme.sh), [lib/map-softer.json](lib/map-softer.json)).
-- **MacTahoe icon theme and cursor** by vinceliuice: <https://github.com/vinceliuice/MacTahoe-icon-theme>, GPL-3.0. Not in this repository: the install downloads commit `839848b9` and runs the theme's own installer.
+- **MacTahoe icon theme and cursor** by vinceliuice: <https://github.com/vinceliuice/MacTahoe-icon-theme>, GPL-3.0. Not in this repository: the install downloads commit `839848b9` and runs the theme's own installer. For Windows, `windows/icons/` holds copies of some of its icons from that commit, as SVG (the dock) and rendered to `.ico` (File Explorer, the desktop and shortcuts); the list is in `windows/icons/map.txt`.
 
 ## Wallpapers
 

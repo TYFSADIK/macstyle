@@ -52,6 +52,18 @@ powershell -ExecutionPolicy Bypass -File .\windows\install.ps1
 
 Then sign out and back in once.
 
+#### For every account on the computer
+
+To give everyone who uses the computer the same look, including people who sign in for the first time later, run this once in PowerShell **as administrator**:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\windows\allusers.ps1
+```
+
+It copies macstyle to `C:\Program Files\macstyle`, sets the folder and drive icons for the whole computer, and adds the scheduled task `\macstyle\macstyle`. That task runs at every sign-in, as the person signing in, and sets macstyle up for them in the background (once per version; the first time it also installs the apps for them). Someone who runs `uninstall.ps1` for themselves is not set up again. Each person's log is `%LOCALAPPDATA%\macstyle-allusers.log`.
+
+`allusers.ps1 -Remove` puts each person back at their next sign-in; once everyone has signed in, `allusers.ps1 -Remove -Purge` deletes the task and the copy in Program Files.
+
 ## What you get
 
 ### Linux
@@ -104,11 +116,12 @@ Quick Look (press Space on a file in Files), a blurred translucent top bar and d
 - **Quick Look**: press Space on a file in File Explorer to preview it (QuickLook).
 - **Spotlight**: Alt+Space searches apps, files and more (PowerToys).
 - **Dark mode on a schedule** with a tray switch (Auto Dark Mode), and **wallpapers that follow it**: the day picture in light mode, the night one in dark mode.
+- **macOS icons everywhere Windows allows**: blue folders in File Explorer, Desktop, Documents, Downloads and the other folders with their macOS icons, This PC, Recycle Bin and Network on the desktop, the hard drive, app shortcuts in the Start menu, on the desktop and the taskbar, and the apps in the dock (MacTahoe icons).
 - **The macOS cursor**, the **Inter** font (close to SF Pro) and **JetBrains Mono** with icons.
 - **The same terminal**: Windows Terminal with the macstyle colours (light and dark), see-through, and PowerShell with the round-pill prompt (Starship), grey suggestions, `z` jumps, `ls` with icons and fastfetch.
 - Taskbar icons centred, the macOS blue as accent colour.
 
-Windows cannot move window buttons to the left or put an app's menus in the top bar; macstyle does not pretend to.
+Windows cannot move window buttons to the left or put an app's menus in the top bar; macstyle does not pretend to. Icons that apps draw themselves (inside their windows, and Store apps in the taskbar) keep their own look.
 
 ## What the install changes
 
@@ -116,7 +129,7 @@ Windows cannot move window buttons to the left or put an app's menus in the top 
 
 Packages: the top-bar menu libraries (libdbusmenu), the Apps Menu extension, Sushi (Quick Look), and for the terminal zsh, zsh-autosuggestions, zsh-syntax-highlighting, fzf, zoxide, fastfetch and lsd (downloaded from their projects where the distribution does not package them). GNOME 47 and older also get `sassc` to build the theme.
 
-**Windows.** Apps with winget; fonts for your account only (no administrator); the cursor, wallpaper, accent and taskbar settings in your part of the registry; a hidden dark-mode watcher started from your Startup folder; a marked block in your PowerShell profiles; a Windows Terminal profile.
+**Windows.** Apps with winget, started right away and at every sign-in (a shortcut in your Startup folder for Seelen UI and QuickLook; PowerToys and Auto Dark Mode set that up themselves); fonts for your account only (no administrator); the cursor, wallpaper, accent and taskbar settings in your part of the registry; icons: desktop icons in your part of the registry, a hidden desktop.ini in your own folders, the icon of matching app shortcuts, and an icon pack switched on in Seelen UI; with administrator (asked once, `-NoAdmin` skips it) the icon of every folder and the C: drive and of the shortcuts shared by all users, from `%ProgramData%\macstyle`; a hidden dark-mode watcher started from your Startup folder; a marked block in your PowerShell profiles; a Windows Terminal profile.
 
 Before changing anything, the first run saves your settings and every file it replaces (Linux: `~/.local/state/macstyle/original/`, Windows: `%LOCALAPPDATA%\macstyle\original\`). Running the install again is safe: it keeps that first copy.
 
@@ -128,6 +141,8 @@ Before changing anything, the first run saves your settings and every file it re
 | `--no-packages` | | Skip everything that needs `sudo`. |
 | `--no-apps` | `-NoApps` | Linux: leave VS Code, Chrome and Firefox alone. Windows: no dock, top bar, Quick Look, search or dark-mode apps. |
 | `--no-terminal` | `-NoTerminal` | Leave the terminal and the shell alone. |
+| | `-NoIcons` | Leave all icons alone. |
+| | `-NoAdmin` | Skip the step that needs administrator (every folder, the C: drive, shared shortcuts). |
 | `--force` | | Run on a distribution that is not Fedora, Ubuntu or Debian. |
 
 ## Uninstall

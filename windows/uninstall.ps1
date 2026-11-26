@@ -27,6 +27,27 @@ Step 'Stopping the dark-mode watcher'
 Stop-DarkSwitch
 Ok 'stopped'
 
+Step 'Icons'
+$seelenOn = @(Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)
+if ($seelenOn) { $seelenOn | Stop-Process -Force; Start-Sleep -Seconds 2 }
+Set-SeelenIconPack $false
+if ($seelenOn) {
+    $seelen = $null
+    try { $seelen = Get-StartApps | Where-Object { $_.Name -eq 'Seelen UI' } | Select-Object -First 1 } catch { }
+    if ($seelen) { Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList "shell:AppsFolder\$($seelen.AppID)" }
+}
+Ok 'dock icon pack switched off'
+if (Test-Path (Join-Path $State 'machine-icons.txt')) {
+    $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'lib\machine-icons.ps1') + '"'), '-Remove')
+    try {
+        $p = Start-Process -FilePath (Get-Command powershell.exe).Source -ArgumentList $psArgs -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+        if ($p.ExitCode -eq 0) { Ok 'folder, drive and shared shortcut icons back as they were' }
+        else { Warn "folder and drive icons: exit code $($p.ExitCode), see $(Join-Path $env:ProgramData 'macstyle\machine-icons.log')" }
+    } catch {
+        Warn 'folder and drive icons stay: administrator was not approved (run the uninstall again to retry)'
+    }
+}
+
 Step 'PowerShell profiles'
 $docs = [Environment]::GetFolderPath('MyDocuments')
 foreach ($p in @((Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1'), (Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'))) {
@@ -58,6 +79,7 @@ if (Test-Path $list) {
     }
 }
 Restore-Registry
+Update-Icons
 [void][Native]::SystemParametersInfo(0x0057, 0, $null, 3)   # the cursors as they were
 $wall = (Get-ItemProperty 'HKCU:\Control Panel\Desktop' -Name WallPaper -ErrorAction SilentlyContinue).WallPaper
 if ($wall) { [void][Native]::SystemParametersInfo(0x0014, 0, $wall, 3) }

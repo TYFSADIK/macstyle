@@ -10,7 +10,7 @@
 $Repo = Split-Path -Parent $PSScriptRoot | Split-Path -Parent
 $State = Join-Path $env:LOCALAPPDATA 'macstyle'
 $Original = Join-Path $State 'original'
-$TerminalProfileGuid = '{4c3b0f1e-5a6d-4d2b-9a3e-6d61637374796c}'
+$TerminalProfileGuid = '{4c3b0f1e-5a6d-4d2b-9a3e-6d6163737479}'   # must be a valid GUID (8-4-4-4-12), or Windows Terminal ignores the profile
 $Marker = '# >>> macstyle'
 $MarkerEnd = '# <<< macstyle'
 
@@ -33,6 +33,8 @@ public static class Native {
     public static extern bool RemoveFontResource(string file);
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+    [DllImport("shell32.dll")]
+    public static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 }
 '@
 }
@@ -55,8 +57,14 @@ function Get-Download([string]$Url, [string]$Dest) {
     } finally { $ProgressPreference = $old }
 }
 
+function Expand-Items($Items) {
+    # Windows PowerShell 5.1 hands a JSON array over as one item (an array inside an array):
+    # flatten it, also for lists saved in that shape before
+    foreach ($i in @($Items)) { if ($i -is [array]) { Expand-Items $i } elseif ($null -ne $i) { $i } }
+}
+
 function Read-Json([string]$Path) {
-    if (Test-Path $Path) { return @(Get-Content -Raw $Path | ConvertFrom-Json) }
+    if (Test-Path $Path) { return @(Expand-Items (Get-Content -Raw $Path | ConvertFrom-Json)) }
     return @()
 }
 
@@ -92,7 +100,13 @@ function Save-RegValue([string]$Key, [string]$Name) {
 
 function Set-RegValue([string]$Key, [string]$Name, $Value, [string]$Kind) {
     Save-RegValue $Key $Name
-    if (-not (Test-Path $Key)) { New-Item -Path $Key -Force | Out-Null }
+    if (-not (Test-Path $Key)) {
+        # Remember the highest key macstyle creates, so the uninstall removes it again
+        $top = $Key
+        while ((Split-Path $top) -and -not (Test-Path (Split-Path $top))) { $top = Split-Path $top }
+        Add-Installed $top
+        New-Item -Path $Key -Force | Out-Null
+    }
     $prop = if ($Name) { $Name } else { '(default)' }
     New-ItemProperty -Path $Key -Name $prop -Value $Value -PropertyType $Kind -Force | Out-Null
 }
@@ -138,6 +152,8 @@ function Restore-Files {
     foreach ($e in (Read-Json (Join-Path $Original 'files.json'))) {
         if ($e.Backup -and (Test-Path $e.Backup)) {
             New-Item -ItemType Directory -Force -Path (Split-Path $e.Path) | Out-Null
+            # Hidden or system files (desktop.ini) cannot be overwritten until they are normal files
+            if (Test-Path -LiteralPath $e.Path -PathType Leaf) { (Get-Item -LiteralPath $e.Path -Force).Attributes = 'Normal' }
             Copy-Item -Path $e.Backup -Destination $e.Path -Recurse -Force
         } elseif (Test-Path $e.Path) {
             Remove-Item -Path $e.Path -Recurse -Force
@@ -211,4 +227,86 @@ function Stop-DarkSwitch {
     Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -like '*macstyle-darkswitch.ps1*' -and $_.CommandLine -notlike '*-Once*' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+# ------------------------------------------------------------------------------------- icons
+
+# Start menu or shortcut name (regular expression) -> icon in windows\icons (MacTahoe, GPL-3.0)
+$AppIcons = @(
+    @('^Google Chrome$', 'chrome'), @('^Microsoft Edge$', 'edge'), @('Firefox', 'firefox'), @('^Brave', 'brave'),
+    @('^Opera', 'opera'), @('^Visual Studio Code', 'vscode'), @('^(Windows )?Terminal$', 'terminal'),
+    @('^(Windows )?PowerShell', 'terminal'), @('^Command Prompt$', 'terminal'), @('^File Explorer$', 'finder'),
+    @('^Settings$', 'settings'), @('^Control Panel$', 'control-panel'), @('^(Microsoft )?Teams', 'teams'),
+    @('^Outlook', 'outlook'), @('^Word$', 'word'), @('^Excel$', 'excel'), @('^PowerPoint$', 'powerpoint'),
+    @('^OneNote', 'onenote'), @('^Notepad', 'notepad'), @('^Calculator$', 'calculator'), @('^Photos$', 'photos'),
+    @('^Snipping Tool$', 'screenshot'), @('^Calendar$', 'calendar'), @('^Mail$', 'mail'),
+    @('^(Clock|Alarms)', 'clock'), @('^Microsoft Store$', 'store'), @('^Camera$', 'camera'),
+    @('^Task Manager$', 'task-manager'), @('^Paint$', 'paint'), @('^(MSN )?Weather$', 'weather'), @('^Maps$', 'maps'),
+    @('^Spotify', 'spotify'), @('^Discord', 'discord'), @('^Slack', 'slack'), @('^Zoom', 'zoom'),
+    @('^WhatsApp', 'whatsapp'), @('^Telegram', 'telegram'), @('^Steam$', 'steam'), @('^VLC', 'vlc'),
+    @('^OBS', 'obs'), @('^GIMP', 'gimp'), @('^Postman', 'postman'), @('^GitHub Desktop', 'github-desktop'),
+    @('^(Adobe )?Acrobat', 'acrobat'), @('^AnyDesk', 'anydesk'), @('^TeamViewer', 'teamviewer'),
+    @('^KeePassXC', 'keepassxc'), @('^1Password', '1password'), @('^Bitwarden', 'bitwarden'), @('^Notion', 'notion'),
+    @('^Obsidian', 'obsidian'), @('^FileZilla', 'filezilla'), @('^PuTTY', 'putty'), @('^Wireshark', 'wireshark'),
+    @('^Docker Desktop', 'docker'), @('VirtualBox', 'virtualbox'), @('^VMware Workstation', 'vmware'),
+    @('^7-Zip', '7zip'), @('^FortiClient', 'forticlient'), @('^Cisco (Secure Client|AnyConnect)', 'cisco-vpn'),
+    @('^PyCharm', 'pycharm'), @('^IntelliJ', 'intellij'), @('^Sublime Text', 'sublime'), @('^Python', 'python'),
+    @('^Git (Bash|CMD|GUI)', 'git'), @('^Remote Desktop Connection$', 'remote-desktop')
+)
+
+function Get-IconFor([string]$Name) {
+    foreach ($m in $AppIcons) { if ($Name -match $m[0]) { return $m[1] } }
+    return $null
+}
+
+function Set-ShortcutIcons([string[]]$Dirs, [string]$IcoDir) {
+    # Shortcuts (Start menu, desktop, taskbar pins) whose name is in $AppIcons get the macOS icon
+    $shell = New-Object -ComObject WScript.Shell
+    $n = 0
+    foreach ($d in $Dirs) {
+        if (-not $d -or -not (Test-Path -LiteralPath $d)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $d -Filter '*.lnk' -Recurse -Force -ErrorAction SilentlyContinue)) {
+            $icon = Get-IconFor $f.BaseName
+            if (-not $icon) { continue }
+            $want = (Join-Path $IcoDir "$icon.ico") + ',0'
+            try {
+                $s = $shell.CreateShortcut($f.FullName)
+                if ($s.IconLocation -eq $want) { continue }
+                Save-File $f.FullName
+                $s.IconLocation = $want
+                $s.Save()
+                $n++
+            } catch { Warn "$($f.FullName): $($_.Exception.Message)" }
+        }
+    }
+    return $n
+}
+
+function Update-Icons {
+    # Tell Explorer the icons changed (SHCNE_ASSOCCHANGED) and refresh its icon cache
+    [Native]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+    $ie4 = Join-Path $env:WINDIR 'System32\ie4uinit.exe'
+    if (Test-Path $ie4) { & $ie4 -show 2>$null | Out-Null }
+}
+
+function Set-SeelenIconPack([bool]$On) {
+    # Adds or removes the macstyle icon pack in Seelen UI's settings (activeIconPacks), keeping
+    # every other setting as it is. Seelen UI must not be running while this writes.
+    $file = Join-Path $env:APPDATA 'com.seelen.seelen-ui\settings.json'
+    $id = '@macstyle/icons'
+    $cfg = New-Object psobject
+    if (Test-Path $file) { $cfg = Get-Content -Raw $file | ConvertFrom-Json }
+    elseif (-not $On) { return }
+    $packs = @()
+    if ($cfg.PSObject.Properties['activeIconPacks']) { $packs = @($cfg.activeIconPacks) }
+    $packs = @($packs | Where-Object { $_ -and $_ -ne $id })
+    if ($On) {
+        if ($packs -notcontains '@system/icon-pack') { $packs = @('@system/icon-pack') + $packs }
+        $packs += $id
+    }
+    if ($cfg.PSObject.Properties['activeIconPacks']) { $cfg.activeIconPacks = $packs }
+    else { $cfg | Add-Member -NotePropertyName 'activeIconPacks' -NotePropertyValue $packs }
+    New-Item -ItemType Directory -Force -Path (Split-Path $file) | Out-Null
+    $utf8 = New-Object Text.UTF8Encoding $false
+    [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 30), $utf8)
 }

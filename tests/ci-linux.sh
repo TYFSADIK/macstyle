@@ -16,12 +16,12 @@ echo "== $PRETTY_NAME"
 case " $ID ${ID_LIKE:-} " in
     *" fedora "*)
         dnf install -y -q gnome-shell dconf dbus-daemon python3 curl tar git sudo \
-            mesa-dri-drivers ptyxis firefox glib2 which findutils procps-ng xorg-x11-server-Xwayland >/dev/null
+            mesa-dri-drivers ptyxis firefox glib2 which findutils procps-ng xorg-x11-server-Xwayland python3-dbusmock >/dev/null
         ;;
     *" debian "* | *" ubuntu "*)
         export DEBIAN_FRONTEND=noninteractive
         pkgs=(gnome-shell dconf-cli dbus dbus-user-session python3 curl tar git sudo ca-certificates libgl1-mesa-dri
-              libglib2.0-bin xz-utils gnome-terminal procps passwd xwayland)
+              libglib2.0-bin xz-utils gnome-terminal procps passwd xwayland python3-dbusmock)
         # a mirror can replace a package between update and install: refresh and try once more
         apt-get update -qq
         apt-get install -y -qq --no-install-recommends "${pkgs[@]}" >/dev/null ||
@@ -36,6 +36,13 @@ mkdir -p /run/user/1000 && chown tester:tester /run/user/1000 && chmod 700 /run/
 dbus-uuidgen --ensure
 mkdir -p /run/dbus
 [ -S /run/dbus/system_bus_socket ] || dbus-daemon --system --fork
+# ...and the login manager on it. A container does not boot systemd, so a stand-in answers GNOME
+# Shell's questions, as in GNOME's own tests (python-dbusmock's logind template).
+python3 -m dbusmock --system --template logind >/tmp/logind-mock.log 2>&1 &
+for _ in $(seq 1 20); do
+    gdbus introspect --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 >/dev/null 2>&1 && break
+    sleep 0.5
+done
 echo 'tester ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/tester
 cp -a "$REPO" /home/tester/macstyle
 chown -R tester:tester /home/tester/macstyle

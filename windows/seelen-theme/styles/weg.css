@@ -1,0 +1,36 @@
+/* macstyle: the dock like macOS. Icons without tiles, and magnification: the icon under the
+   pointer grows, its neighbours a little less, pushing the others aside, growing upward. */
+.taskbar.horizontal .weg-items {
+  align-items: flex-end;
+}
+.weg-item-drag-container {
+  --mag: 1;
+}
+.weg-item-drag-container:hover { --mag: 1.4; }
+.weg-item-drag-container:hover + .weg-item-drag-container,
+.weg-item-drag-container:has(+ .weg-item-drag-container:hover) { --mag: 1.2; }
+.weg-item-drag-container:hover + .weg-item-drag-container + .weg-item-drag-container,
+.weg-item-drag-container:has(+ .weg-item-drag-container + .weg-item-drag-container:hover) { --mag: 1.08; }
+
+.weg-item {
+  background-color: transparent;
+  box-shadow: none;
+  overflow: visible;
+  padding: 2px;
+  width: calc(var(--config-item-size) * var(--mag));
+  height: calc(var(--config-item-size) * var(--mag));
+  transition: width 140ms ease-out, height 140ms ease-out;
+}
+.weg-item:hover {
+  background-color: transparent;
+}
+.weg-item:hover .weg-item-icon {
+  filter: none;
+}
+.weg-item:active {
+  transform: none;
+  filter: brightness(0.8);
+}
+@media (prefers-reduced-motion: reduce) {
+  .weg-item { transition: none; }
+}

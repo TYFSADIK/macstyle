@@ -1,0 +1,8 @@
+id: "@macstyle/dock"
+metadata:
+  displayName: macstyle dock
+  description: macOS dock look and magnification for the Seelen UI dock
+  tags:
+    - weg
+styles:
+  "@seelen/weg": !include styles/weg.css

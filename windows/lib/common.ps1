@@ -235,9 +235,16 @@ function New-TerminalFragment([string]$PaletteFile) {
 }
 
 function Stop-DarkSwitch {
+    Get-Process -Name 'macstyle-darkswitch' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -like '*macstyle-darkswitch.ps1*' -and $_.CommandLine -notlike '*-Once*' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+function Get-Csc {
+    # The C# compiler that is part of Windows (.NET Framework 4)
+    @((Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'), (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')) |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 
 function Stop-WindowButtons {
@@ -460,11 +467,19 @@ $SeelenSettings = @(
     @(@('byWidget', '@seelen/fancy-toolbar', 'hideMode'), 'Never'),
     @(@('byWidget', '@seelen/weg', 'enabled'), $true),
     @(@('byWidget', '@seelen/weg', 'position'), 'Bottom'),
-    @(@('byWidget', '@seelen/weg', 'size'), 44),
+    @(@('byWidget', '@seelen/weg', 'size'), 48),
+    @(@('byWidget', '@seelen/weg', 'spaceBetweenItems'), 6),
+    @(@('byWidget', '@seelen/weg', 'hideMode'), 'OnOverlap'),
+    # every screen has a dock: the main one with the pinned apps, the others with the windows open on them
+    @(@('byWidget', '@seelen/weg', 'pinnedItemsVisibility'), 'WhenPrimary'),
+    @(@('byWidget', '@seelen/weg', 'temporalItemsVisibility'), 'OnMonitor'),
     @(@('byWidget', '@seelen/weg', 'showInstanceCounter'), $false),
     @(@('byWidget', '@seelen/weg', 'showWindowTitle'), $false),
     @(@('dateFormat'), 'ddd D MMM  h:mm A')
 )
+
+# The macstyle dock theme (windows\seelen-theme): icons without tiles, magnified under the pointer
+$SeelenThemeId = '@macstyle/dock'
 
 function New-SeelenId { [guid]::NewGuid().ToString() }
 
@@ -479,18 +494,14 @@ function New-ToolbarLayout {
         onClick = 'trigger("@seelen/power-menu")'; onWheelUp = $null; onWheelDown = $null
         style = [ordered]@{ paddingLeft = '6px'; paddingRight = '10px' }; remoteData = [ordered]@{}
     }
-    $app = [ordered]@{
-        id = (New-SeelenId); scopes = @('FocusedApp')
-        template = 'const exe = ((focusedApp && focusedApp.exe) || "").toLowerCase(); const name = (focusedApp && focusedApp.name) || ""; return (!name || exe.endsWith("explorer.exe") || exe.endsWith("seelen-ui.exe")) ? "Finder" : name;'
-        render = $null; canvasSize = $null; tooltip = $null; badge = $null; onClick = $null; onWheelUp = $null; onWheelDown = $null
-        style = [ordered]@{ fontWeight = 700 }; remoteData = [ordered]@{}
-    }
+    # the app in front, with its icon and its name in bold
     return [ordered]@{
         isReorderDisabled = $false
-        left              = @($logo, $app)
+        left              = @($logo, '@default/focused-app')
         center            = @()
-        right             = @('@seelen/tb-system-tray', '@seelen/tb-bluetooth-popup', '@seelen/tb-network-popup', '@seelen/tb-media-popup',
-            '@default/power', '@seelen/tb-quick-settings', '@seelen/tb-notifications', '@seelen/tb-calendar-popup')
+        right             = @('@seelen/tb-system-tray', '@seelen/tb-keyboard-selector', '@seelen/tb-bluetooth-popup',
+            '@seelen/tb-network-popup', '@seelen/tb-media-popup', '@default/power', '@seelen/tb-notifications',
+            '@seelen/tb-quick-settings', '@seelen/tb-calendar-popup')
     }
 }
 
@@ -548,20 +559,12 @@ function ConvertTo-DockYaml($Item) {
 
 function New-DockLayout([string]$Current) {
     # The macOS dock: Finder first, then Launchpad (all apps), the apps already pinned (kept, in
-    # their order), Terminal and System Settings; the Trash at the end, after a divider. Returns
-    # @{ Yaml; Count }.
+    # their order); the Trash at the end, after a divider. Returns @{ Yaml; Count }.
     $pinned = Get-DockPinnedBlocks $Current
     $center = New-Object System.Collections.Generic.List[string]
     $center.Add((ConvertTo-DockYaml ([ordered]@{ type = 'AppOrFile'; id = (New-SeelenId); displayName = 'Finder'; umid = $null; path = (Join-Path $env:WINDIR 'explorer.exe'); pinned = $true; preventPinning = $false })))
     $center.Add((ConvertTo-DockYaml ([ordered]@{ type = 'Plugin'; id = (New-SeelenId); plugin = '@default/weg-start-menu' })))
     foreach ($b in $pinned) { $center.Add($b) }
-    $apps = @(); try { $apps = @(Get-StartApps) } catch { }
-    foreach ($want in @(@('^(Windows )?Terminal$', 'Terminal'), @('^Settings$', 'System Settings'))) {
-        $a = $apps | Where-Object { $_.Name -match $want[0] -and -not (Test-Path -LiteralPath $_.AppID) } | Select-Object -First 1
-        if ($a -and -not ($pinned | Where-Object { $_.Contains($a.AppID) })) {
-            $center.Add((ConvertTo-DockYaml ([ordered]@{ type = 'AppOrFile'; id = (New-SeelenId); displayName = $want[1]; umid = $a.AppID; path = ''; pinned = $true; preventPinning = $false })))
-        }
-    }
     $right = @((ConvertTo-DockYaml ([ordered]@{ type = 'Separator'; id = (New-SeelenId) })),
         (ConvertTo-DockYaml ([ordered]@{ type = 'Plugin'; id = (New-SeelenId); plugin = '@default/weg-trash-bin' })))
     $yaml = "isReorderDisabled: false`nleft: []`ncenter:`n" + ($center -join "`n") + "`nright:`n" + ($right -join "`n") + "`n"
@@ -579,7 +582,7 @@ function Set-SeelenLook {
     $savedFile = Join-Path $Original 'seelen.json'
     if (-not (Test-Path $savedFile)) {
         $saved = @()
-        foreach ($s in $SeelenSettings) {
+        foreach ($s in @($SeelenSettings) + ,@(@('activeThemes'), $null)) {
             $now = Get-JsonPath $cfg $s[0]
             $saved += [ordered]@{ Path = $s[0]; Exists = $now.Exists; Value = $now.Value }
         }
@@ -587,6 +590,15 @@ function Set-SeelenLook {
         [IO.File]::WriteAllText($savedFile, (ConvertTo-Json -InputObject @($saved) -Depth 10), $utf8)
     }
     foreach ($s in $SeelenSettings) { Set-JsonPath $cfg $s[0] $s[1] }
+    # the dock theme: its files, then switched on after Seelen's own (activeThemes was saved above)
+    $themeDir = Join-Path $SeelenRoot 'themes\macstyle-dock'
+    New-Item -ItemType Directory -Force -Path (Join-Path $themeDir 'styles') | Out-Null
+    Copy-Item (Join-Path $Repo 'windows\seelen-theme\metadata.yml') $themeDir -Force
+    Copy-Item (Join-Path $Repo 'windows\seelen-theme\styles\weg.css') (Join-Path $themeDir 'styles') -Force
+    Add-Installed $themeDir
+    $themes = @((Get-JsonPath $cfg @('activeThemes')).Value | Where-Object { $_ -and $_ -ne $SeelenThemeId })
+    if (-not $themes) { $themes = @('@default/theme') }
+    Set-JsonPath $cfg @('activeThemes') @($themes + $SeelenThemeId)
     New-Item -ItemType Directory -Force -Path $SeelenRoot | Out-Null
     [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 30), $utf8)
 

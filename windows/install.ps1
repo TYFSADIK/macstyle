@@ -22,14 +22,16 @@
     Leave all icons alone.
 .PARAMETER NoKeyboard
     Leave the keyboard alone (no Mac shortcuts with Alt).
-.PARAMETER NoWindowButtons
-    No red, yellow and green window buttons at the top left of app windows.
+.PARAMETER WindowButtons
+    Also draw red, yellow and green window buttons at the top left of app windows. Off by default:
+    most apps (Edge, Chrome, Teams, Terminal, File Explorer) draw their own title bar, so the Mac
+    buttons would sit beside Windows' own and over the app's tabs.
 .PARAMETER NoAdmin
     Skip the one step that needs administrator: the icons of every folder, the C: drive and the
     shortcuts shared by all users.
 #>
 [CmdletBinding()]
-param([switch]$Yes, [switch]$NoApps, [switch]$NoTerminal, [switch]$NoIcons, [switch]$NoAdmin, [switch]$NoKeyboard, [switch]$NoWindowButtons)
+param([switch]$Yes, [switch]$NoApps, [switch]$NoTerminal, [switch]$NoIcons, [switch]$NoAdmin, [switch]$NoKeyboard, [switch]$WindowButtons)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
@@ -450,23 +452,42 @@ function Install-Wallpapers {
     Save-RegValue 'HKCU:\Control Panel\Desktop' 'WallPaper'
 
     # The dark-mode watcher: picks the day or night picture now and whenever dark mode changes,
-    # started at every sign-in from the Startup folder.
+    # started at every sign-in from the Startup folder. Built from lib\macstyle-darkswitch.cs: it
+    # sleeps until Windows reports the change (no CPU while waiting). The PowerShell script is the
+    # fallback where the C# compiler is missing.
     $bin = Join-Path $State 'bin'
     New-Item -ItemType Directory -Force -Path $bin | Out-Null
     Copy-Item (Join-Path $PSScriptRoot 'lib\macstyle-darkswitch.ps1') $bin -Force
     $script = Join-Path $bin 'macstyle-darkswitch.ps1'
+    Stop-DarkSwitch
+    $exe = Join-Path $bin 'macstyle-darkswitch.exe'
+    $csc = Get-Csc
+    if ($csc) {
+        $p = Start-Process -FilePath $csc -ArgumentList @('/nologo', '/target:winexe', '/optimize', "`"/out:$exe`"",
+            "`"$(Join-Path $PSScriptRoot 'lib\macstyle-darkswitch.cs')`"") -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $State 'darkswitch-build.log')
+        if ($p.ExitCode -ne 0) { Remove-Item $exe -Force -ErrorAction SilentlyContinue }
+    }
     $lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle dark mode.lnk'
     $shell = New-Object -ComObject WScript.Shell
     $s = $shell.CreateShortcut($lnk)
-    $s.TargetPath = (Get-Command powershell.exe).Source
-    $s.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
+    if (Test-Path $exe) {
+        Add-Installed $exe
+        $s.TargetPath = $exe; $s.Arguments = ''
+    } else {
+        $s.TargetPath = (Get-Command powershell.exe).Source
+        $s.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
+    }
     $s.WindowStyle = 7
     $s.Description = 'macstyle: wallpapers that follow dark mode'
     $s.Save()
     Add-Installed $lnk
-    Stop-DarkSwitch
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Once
-    Start-Process -WindowStyle Hidden -FilePath (Get-Command powershell.exe).Source -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"")
+    if (Test-Path $exe) {
+        Start-Process -FilePath $exe -ArgumentList '-once' -Wait
+        Start-Process -FilePath $exe
+    } else {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Once
+        Start-Process -WindowStyle Hidden -FilePath (Get-Command powershell.exe).Source -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"")
+    }
     Ok "six day-and-night pairs in $dest; `"$DefaultWallpaper`" set"
 }
 
@@ -479,16 +500,22 @@ function Set-TopBarAndDock {
     $n = $script:dockCount
     Start-Seelen
     Ok 'top bar: system menu, the app name in bold, status icons, Control Centre and the clock on the right'
-    Ok "dock: Finder, Launchpad and $($n - 2) more, the Trash after a divider; Seelen's own wallpaper off"
+    Ok "dock: Finder, Launchpad and $($n - 2) more, the Trash after a divider; magnified under the pointer"
+    Ok "a dock on every screen: the main one with your apps, the others with the windows open on them"
 }
 
 function Install-WindowButtons {
     Step 'Window buttons: close, minimize and zoom at the top left, like macOS'
-    if ($NoWindowButtons) { Warn 'skipped (-NoWindowButtons)'; return }
+    if (-not $WindowButtons) {
+        # off unless asked for (-WindowButtons); a copy started by an earlier install is stopped
+        Stop-WindowButtons
+        Remove-Item (Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle window buttons.lnk') -Force -ErrorAction SilentlyContinue
+        Ok "Windows' own window buttons (add -WindowButtons for the Mac ones)"
+        return
+    }
     # Built here with the C# compiler that is part of Windows (.NET Framework 4), so nothing is
     # downloaded and the program is made from the source in this repository
-    $csc = @((Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'), (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')) |
-        Where-Object { Test-Path $_ } | Select-Object -First 1
+    $csc = Get-Csc
     if (-not $csc) { Warn 'skipped: the .NET Framework 4 C# compiler is not on this computer'; return }
     $bin = Join-Path $State 'bin'
     New-Item -ItemType Directory -Force -Path $bin | Out-Null
@@ -592,6 +619,31 @@ function Set-LockScreen {
     }
 }
 
+function Set-PowerToysLean($s) {
+    # Only what macstyle uses keeps running: Command Palette (Alt+Space) and Keyboard Manager.
+    # These modules each run in the background (about 400 MB together) and are switched off;
+    # File Explorer add-ons (PowerRename, Image Resizer, previews) only load when used and stay.
+    foreach ($m in @('AlwaysOnTop', 'Awake', 'ColorPicker', 'FancyZones', 'FindMyMouse', 'MouseHighlighter',
+            'Measure Tool', 'Peek', 'Shortcut Guide')) {
+        if ($s.enabled.PSObject.Properties[$m]) { $s.enabled.$m = $false }
+        else { $s.enabled | Add-Member -NotePropertyName $m -NotePropertyValue $false }
+    }
+    if ($s.enabled.PSObject.Properties['CmdPal']) { $s.enabled.CmdPal = $true }
+    else { $s.enabled | Add-Member -NotePropertyName 'CmdPal' -NotePropertyValue $true }
+}
+
+function Set-PowerToysOnlySearch {
+    # With -NoKeyboard the keyboard step is skipped; the unused modules still go off
+    if (-not ($NoKeyboard -and -not $NoApps)) { return }
+    $settings = Join-Path $env:LOCALAPPDATA 'Microsoft\PowerToys\settings.json'
+    if (-not (Test-Path $settings)) { return }
+    Save-File $settings
+    $s = Get-Content -Raw $settings | ConvertFrom-Json
+    if (-not $s.PSObject.Properties['enabled']) { return }
+    Set-PowerToysLean $s
+    [IO.File]::WriteAllText($settings, (ConvertTo-Json -InputObject $s -Depth 30), (New-Object Text.UTF8Encoding $false))
+}
+
 function Set-MacKeyboard {
     Step 'Keyboard: Mac shortcuts with the key where Cmd is (Alt)'
     if ($NoKeyboard -or $NoApps) { Warn 'skipped'; return }
@@ -638,12 +690,14 @@ function Set-MacKeyboard {
     if (-not $s.PSObject.Properties['enabled']) { $s | Add-Member -NotePropertyName 'enabled' -NotePropertyValue (New-Object psobject) }
     if ($s.enabled.PSObject.Properties['Keyboard Manager']) { $s.enabled.'Keyboard Manager' = $true }
     else { $s.enabled | Add-Member -NotePropertyName 'Keyboard Manager' -NotePropertyValue $true }
+    Set-PowerToysLean $s
     [IO.File]::WriteAllText($settings, (ConvertTo-Json -InputObject $s -Depth 30), $utf8)
 
     # PowerToys reads them when it starts
     $running = @(Get-Process -Name 'PowerToys' -ErrorAction SilentlyContinue)
     if ($running) { $running | Stop-Process -Force; Start-Sleep -Seconds 2; Start-Process -FilePath $exe }
     Ok 'Alt+C, V, X, Z, A, S, F, T, W, N, P, R, L work like Cmd; Alt+Q quits (PowerToys Keyboard Manager)'
+    Ok 'PowerToys: only search (Alt+Space) and Keyboard Manager run; 9 unused modules off'
 }
 
 function Install-Terminal {
@@ -727,8 +781,7 @@ function Write-Finish {
         switches the wallpaper too.
       - Alt works like Cmd on a Mac: Alt+C copy, Alt+V paste, Alt+Z undo, Alt+S save,
         Alt+W close, Alt+Q quit (Ctrl works as before). Alt+Space searches.
-      - Every app window has red, yellow and green buttons at the top left: close, minimize
-        and zoom (maximize). Windows' own buttons stay at the top right and work too.
+      - The dock magnifies the icon under the pointer, like macOS.
       - Open Windows Terminal for the macstyle prompt.
 
     Undo everything:  .\windows\uninstall.ps1
@@ -762,6 +815,7 @@ try {
     Set-QuietSounds
     Set-LockScreen
     Set-MacKeyboard
+    Set-PowerToysOnlySearch
     Install-Terminal
     Write-Finish
 } catch {

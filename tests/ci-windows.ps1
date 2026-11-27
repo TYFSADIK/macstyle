@@ -61,6 +61,10 @@ Check 'Inter font' ((RegVal 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\
 $wall = RegVal 'HKCU:\Control Panel\Desktop' 'WallPaper'
 Check 'wallpaper (day picture in light mode)' ($wall -like '*macstyle*mountain-l.jpg' -or $wall -like '*macstyle*mountain-d.jpg') $wall
 Check 'dark-mode watcher at sign-in' (Test-Path (Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle dark mode.lnk'))
+$btnExe = Join-Path $state 'bin\macstyle-buttons.exe'
+Check 'window buttons built' (Test-Path $btnExe)
+Check 'window buttons at sign-in' (Test-Path (Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle window buttons.lnk'))
+Check 'window buttons running' ([bool](Get-Process macstyle-buttons -ErrorAction SilentlyContinue))
 Check 'accent colour' ((RegVal 'HKCU:\Software\Microsoft\Windows\DWM' 'AccentColor') -ne $before['HKCU:\Software\Microsoft\Windows\DWM|AccentColor'])
 foreach ($p in $profiles) { Check "profile block $(Split-Path $p -Leaf) in $(Split-Path (Split-Path $p) -Leaf)" ((Test-Path $p) -and ((Get-Content -Raw $p) -match 'macstyle')) }
 $pc = RegVal 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\DefaultIcon' '(default)'
@@ -142,6 +146,8 @@ Check 'Documents desktop.ini back as before' ($docsIniAfter -eq $docsIniBefore)
 Check 'shared icons removed' (-not (Test-Path (Join-Path $env:ProgramData 'macstyle')))
 Check 'watcher removed' (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle dark mode.lnk')))
 foreach ($p in $profiles) { Check "profile block removed from $(Split-Path (Split-Path $p) -Leaf)" (-not ((Test-Path $p) -and ((Get-Content -Raw $p) -match '# >>> macstyle'))) }
+Check 'window buttons stopped' (-not (Get-Process macstyle-buttons -ErrorAction SilentlyContinue))
+Check 'window buttons removed from sign-in' (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle window buttons.lnk')))
 Check 'Windows Terminal profile removed' (-not (Test-Path $frag))
 $left = @(Get-ChildItem ([Environment]::GetFolderPath('Startup')) -Filter '*(macstyle).lnk' -ErrorAction SilentlyContinue)
 Check 'sign-in shortcuts removed' ($left.Count -eq 0) (($left | ForEach-Object Name) -join ', ')

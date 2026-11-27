@@ -23,8 +23,9 @@ if (-not $Yes) {
     if ($a -notmatch '^[yY]') { Write-Host 'Nothing changed.'; exit 0 }
 }
 
-Step 'Stopping the dark-mode watcher'
+Step 'Stopping the dark-mode watcher and the window buttons'
 Stop-DarkSwitch
+Stop-WindowButtons
 Ok 'stopped'
 
 Step 'Icons'

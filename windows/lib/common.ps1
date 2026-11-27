@@ -240,6 +240,11 @@ function Stop-DarkSwitch {
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
+function Stop-WindowButtons {
+    $p = @(Get-Process -Name 'macstyle-buttons' -ErrorAction SilentlyContinue)
+    if ($p) { $p | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500 }
+}
+
 # ------------------------------------------------------------------------------------- icons
 
 # Start menu or shortcut name (regular expression) -> icon in windows\icons (MacTahoe, GPL-3.0)

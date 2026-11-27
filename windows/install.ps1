@@ -22,12 +22,14 @@
     Leave all icons alone.
 .PARAMETER NoKeyboard
     Leave the keyboard alone (no Mac shortcuts with Alt).
+.PARAMETER NoWindowButtons
+    No red, yellow and green window buttons at the top left of app windows.
 .PARAMETER NoAdmin
     Skip the one step that needs administrator: the icons of every folder, the C: drive and the
     shortcuts shared by all users.
 #>
 [CmdletBinding()]
-param([switch]$Yes, [switch]$NoApps, [switch]$NoTerminal, [switch]$NoIcons, [switch]$NoAdmin, [switch]$NoKeyboard)
+param([switch]$Yes, [switch]$NoApps, [switch]$NoTerminal, [switch]$NoIcons, [switch]$NoAdmin, [switch]$NoKeyboard, [switch]$NoWindowButtons)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
@@ -480,6 +482,35 @@ function Set-TopBarAndDock {
     Ok "dock: Finder, Launchpad and $($n - 2) more, the Trash after a divider; Seelen's own wallpaper off"
 }
 
+function Install-WindowButtons {
+    Step 'Window buttons: close, minimize and zoom at the top left, like macOS'
+    if ($NoWindowButtons) { Warn 'skipped (-NoWindowButtons)'; return }
+    # Built here with the C# compiler that is part of Windows (.NET Framework 4), so nothing is
+    # downloaded and the program is made from the source in this repository
+    $csc = @((Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'), (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')) |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $csc) { Warn 'skipped: the .NET Framework 4 C# compiler is not on this computer'; return }
+    $bin = Join-Path $State 'bin'
+    New-Item -ItemType Directory -Force -Path $bin | Out-Null
+    $exe = Join-Path $bin 'macstyle-buttons.exe'
+    Stop-WindowButtons
+    $src = Join-Path $PSScriptRoot 'buttons\macstyle-buttons.cs'
+    $logFile = Join-Path $State 'buttons-build.log'
+    $p = Start-Process -FilePath $csc -ArgumentList @('/nologo', '/target:winexe', '/optimize', "`"/out:$exe`"",
+        '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', "`"$src`"") -NoNewWindow -Wait -PassThru -RedirectStandardOutput $logFile
+    if ($p.ExitCode -ne 0 -or -not (Test-Path $exe)) { Warn "could not build them, see $logFile"; return }
+    Add-Installed $exe
+    $lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'macstyle window buttons.lnk'
+    $shell = New-Object -ComObject WScript.Shell
+    $s = $shell.CreateShortcut($lnk)
+    $s.TargetPath = $exe
+    $s.Description = 'macstyle: close, minimize and zoom buttons at the top left of app windows'
+    $s.Save()
+    Add-Installed $lnk
+    Start-Process -FilePath $exe
+    Ok 'red, yellow and green buttons at the top left of every app window (they start at every sign-in)'
+}
+
 function Set-Desktop {
     Step 'Desktop settings'
     $adv = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -696,6 +727,8 @@ function Write-Finish {
         switches the wallpaper too.
       - Alt works like Cmd on a Mac: Alt+C copy, Alt+V paste, Alt+Z undo, Alt+S save,
         Alt+W close, Alt+Q quit (Ctrl works as before). Alt+Space searches.
+      - Every app window has red, yellow and green buttons at the top left: close, minimize
+        and zoom (maximize). Windows' own buttons stay at the top right and work too.
       - Open Windows Terminal for the macstyle prompt.
 
     Undo everything:  .\windows\uninstall.ps1
@@ -723,6 +756,7 @@ try {
     Install-Fonts
     Install-Cursor
     Install-Wallpapers
+    Install-WindowButtons
     Set-Desktop
     Set-Finder
     Set-QuietSounds

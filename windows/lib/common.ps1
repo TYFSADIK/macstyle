@@ -323,3 +323,38 @@ function Set-SeelenIconPack([bool]$On) {
     $utf8 = New-Object Text.UTF8Encoding $false
     [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 30), $utf8)
 }
+
+# ------------------------------------------------------------------------------- lock screen
+
+function Invoke-WinRT($Operation, [Type]$ResultType) {
+    # Windows PowerShell 5.1 awaits a Windows Runtime operation through a .NET Task
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    $methods = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 }
+    if ($ResultType) {
+        $m = ($methods | Where-Object { $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0].MakeGenericMethod($ResultType)
+    } else {
+        $m = ($methods | Where-Object { $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncAction' })[0]
+    }
+    $task = $m.Invoke($null, @($Operation))
+    $task.Wait(-1) | Out-Null
+    if ($ResultType) { return $task.Result }
+}
+
+function Set-LockScreenImage([string]$Path) {
+    [void][Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+    [void][Windows.System.UserProfile.LockScreen, Windows.System.UserProfile, ContentType = WindowsRuntime]
+    $file = Invoke-WinRT ([Windows.Storage.StorageFile]::GetFileFromPathAsync($Path)) ([Windows.Storage.StorageFile])
+    Invoke-WinRT ([Windows.System.UserProfile.LockScreen]::SetImageFileAsync($file)) $null
+}
+
+function Save-LockScreenImage([string]$Dest) {
+    # The picture on the lock screen now, kept so the uninstall can put it back
+    [void][Windows.System.UserProfile.LockScreen, Windows.System.UserProfile, ContentType = WindowsRuntime]
+    $stream = [Windows.System.UserProfile.LockScreen]::GetImageStream()
+    if (-not $stream) { return $false }
+    $in = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+    New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null
+    $out = [IO.File]::Create($Dest)
+    try { $in.CopyTo($out) } finally { $out.Close(); $in.Close() }
+    return $true
+}

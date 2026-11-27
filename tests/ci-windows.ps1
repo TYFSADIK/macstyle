@@ -15,7 +15,12 @@ $watch = @(
     @('HKCU:\Control Panel\Desktop', 'WallpaperStyle'), @('HKCU:\Software\Microsoft\Windows\DWM', 'AccentColor'),
     @('HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts', 'JetBrainsMonoNerdFont Regular (TrueType)'),
     @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\DefaultIcon', '(default)'),
-    @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons', '3')
+    @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons', '3'),
+    @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', 'HideFileExt'),
+    @('HKCU:\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}', 'System.IsPinnedToNameSpaceTree'),
+    @('HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', 'RotatingLockScreenEnabled'),
+    @('HKCU:\AppEvents\Schemes\Apps\Explorer\Navigating\.Current', '(default)'),
+    @('HKCU:\AppEvents\Schemes\Apps\.Default\Notification.Default\.Current', '(default)')
 )
 $before = @{}; foreach ($w in $watch) { $before["$($w[0])|$($w[1])"] = RegVal $w[0] $w[1] }
 $docs = [Environment]::GetFolderPath('MyDocuments')
@@ -47,6 +52,11 @@ Check 'This PC icon' (($pc -like '*macstyle*computer.ico,0') -and (Test-Path ($p
 Check 'Documents folder icon' ((Test-Path $docsIni) -and ((Get-Content -Raw $docsIni) -match 'IconResource=.*macstyle.*folder-documents\.ico'))
 $folderIcon = RegVal 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons' '3'
 Check 'every folder icon (administrator step)' (($folderIcon -like '*ProgramData*macstyle*folder.ico,0') -and (Test-Path ($folderIcon -replace ',0$', ''))) $folderIcon
+Check 'Finder: file extensions hidden' ((RegVal 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' 'HideFileExt') -eq 1)
+Check 'Finder: Gallery out of the sidebar' ((RegVal 'HKCU:\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}' 'System.IsPinnedToNameSpaceTree') -eq 0)
+$nav = $before['HKCU:\AppEvents\Schemes\Apps\Explorer\Navigating\.Current|(default)']
+if ($nav -and $nav -ne '<none>') { Check 'quiet: no click sound in File Explorer' (-not (RegVal 'HKCU:\AppEvents\Schemes\Apps\Explorer\Navigating\.Current' '(default)')) }
+Check 'quiet: notifications keep their sound' ((RegVal 'HKCU:\AppEvents\Schemes\Apps\.Default\Notification.Default\.Current' '(default)') -eq $before['HKCU:\AppEvents\Schemes\Apps\.Default\Notification.Default\.Current|(default)'])
 Check 'starship config' (Test-Path (Join-Path $HOME '.config\macstyle\starship.toml'))
 $frag = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows Terminal\Fragments\macstyle\macstyle.json'
 $fragOk = $false; try { $j = Get-Content -Raw $frag | ConvertFrom-Json; $fragOk = ($j.schemes.Count -eq 2 -and $j.profiles[0].font.face -eq 'JetBrainsMono Nerd Font' -and [bool]([guid]$j.profiles[0].guid)) } catch { }
@@ -65,6 +75,10 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     foreach ($n in @('Seelen UI', 'QuickLook')) {
         if ($installText -match [regex]::Escape("[ok] $n (starts at sign-in)")) { Check "$n starts at sign-in" (Test-Path (Join-Path $startup "$n (macstyle).lnk")) }
     }
+    $kbm = Join-Path $env:LOCALAPPDATA 'Microsoft\PowerToys\Keyboard Manager\default.json'
+    if ($installText -match 'work like Cmd') {
+        Check 'Mac shortcuts: Alt+C copies (PowerToys Keyboard Manager)' ((Test-Path $kbm) -and ((Get-Content -Raw $kbm) -match '"18;67"'))
+    } else { Write-Host "note  Mac shortcuts not set here: $((($installText -split "`n") | Select-String 'Keyboard|PowerToys is not' | Select-Object -Last 1))" }
     Check 'Auto Dark Mode installed or tried' $adm (($installText -split "`n" | Select-String 'Auto Dark Mode') -join ' ').Trim()
     # The prompt itself renders in a fresh PowerShell with the profile
     # (native stderr is an error under Stop in Windows PowerShell 5.1, so not here)
@@ -81,6 +95,7 @@ if (Test-Path $machineLog) { Write-Host '--- machine-icons.log after uninstall';
 $diff = @()
 foreach ($w in $watch) { $k = "$($w[0])|$($w[1])"; $now = RegVal $w[0] $w[1]; if ($now -ne $before[$k]) { $diff += "$k : $($before[$k]) -> $now" } }
 Check 'registry back as before' ($diff.Count -eq 0) ($diff -join '; ')
+if ($kbm -and (Test-Path $kbm)) { Check 'Mac shortcuts removed' (-not ((Get-Content -Raw $kbm) -match '"18;67"')) }
 Check 'font files removed' (-not (Test-Path $font))
 $docsIniAfter = if (Test-Path $docsIni) { Get-Content -Raw $docsIni } else { '<none>' }
 Check 'Documents desktop.ini back as before' ($docsIniAfter -eq $docsIniBefore)

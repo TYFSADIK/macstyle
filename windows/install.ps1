@@ -20,12 +20,14 @@
     Leave the terminal and PowerShell alone.
 .PARAMETER NoIcons
     Leave all icons alone.
+.PARAMETER NoKeyboard
+    Leave the keyboard alone (no Mac shortcuts with Alt).
 .PARAMETER NoAdmin
     Skip the one step that needs administrator: the icons of every folder, the C: drive and the
     shortcuts shared by all users.
 #>
 [CmdletBinding()]
-param([switch]$Yes, [switch]$NoApps, [switch]$NoTerminal, [switch]$NoIcons, [switch]$NoAdmin)
+param([switch]$Yes, [switch]$NoApps, [switch]$NoTerminal, [switch]$NoIcons, [switch]$NoAdmin, [switch]$NoKeyboard)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
@@ -441,6 +443,114 @@ function Set-Desktop {
     Ok 'taskbar centred, accent colour blue'
 }
 
+function Set-Finder {
+    Step 'File Explorer like Finder'
+    $adv = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    Set-RegValue $adv 'HideFileExt' 1 'DWord'                    # names without .docx, .jpg, as in Finder
+    Set-RegValue $adv 'ShowStatusBar' 0 'DWord'
+    Set-RegValue $adv 'AutoCheckSelect' 0 'DWord'                # no tick boxes on files
+    Set-RegValue $adv 'UseCompactMode' 0 'DWord'
+    Set-RegValue $adv 'ShowSyncProviderNotifications' 0 'DWord'  # no OneDrive banners in the window
+    # Gallery out of the sidebar; Home stays: its recent files are Finder's Recents
+    Set-RegValue 'HKCU:\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}' 'System.IsPinnedToNameSpaceTree' 0 'DWord'
+    Ok 'file extensions hidden, no status bar or tick boxes, Gallery out of the sidebar'
+}
+
+function Set-QuietSounds {
+    Step 'Sounds: quiet, like a Mac'
+    # macOS plays a sound for notifications and alerts, not for every click, folder or device.
+    # Every other event of the current sound scheme is set to no sound (each one is saved first).
+    $keep = @('.Default', 'SystemAsterisk', 'SystemExclamation', 'SystemHand', 'CriticalBatteryAlarm', 'LowBatteryAlarm')
+    $n = 0
+    foreach ($app in @(Get-ChildItem 'HKCU:\AppEvents\Schemes\Apps' -ErrorAction SilentlyContinue)) {
+        foreach ($ev in @(Get-ChildItem -LiteralPath $app.PSPath -ErrorAction SilentlyContinue)) {
+            if ($keep -contains $ev.PSChildName -or $ev.PSChildName -like 'Notification*') { continue }
+            $cur = $ev.Name -replace '^HKEY_CURRENT_USER', 'HKCU:'
+            $cur = "$cur\.Current"
+            if (-not (Test-Path -LiteralPath $cur)) { continue }
+            $v = (Get-Item -LiteralPath $cur).GetValue('')
+            if (-not $v) { continue }
+            Set-RegValue $cur '' '' 'ExpandString'
+            $n++
+        }
+    }
+    Ok "$n event sounds off; notifications and alerts keep theirs"
+}
+
+function Set-LockScreen {
+    Step 'Lock screen: the same picture as the desktop'
+    $pic = Join-Path $State "wallpapers\$DefaultWallpaper-l.jpg"
+    if (-not (Test-Path $pic)) { Warn 'no wallpaper to use: skipped'; return }
+    try {
+        $saved = Join-Path $Original 'lockscreen.jpg'
+        if (-not (Test-Path $saved) -and -not (Test-Path (Join-Path $Original 'lockscreen-none.txt'))) {
+            if (-not (Save-LockScreenImage $saved)) { Set-Content (Join-Path $Original 'lockscreen-none.txt') 'none' }
+        }
+        # Windows Spotlight would replace it with its own pictures
+        $cdm = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+        Set-RegValue $cdm 'RotatingLockScreenEnabled' 0 'DWord'
+        Set-RegValue $cdm 'RotatingLockScreenOverlayEnabled' 0 'DWord'
+        Set-LockScreenImage $pic
+        Ok "$DefaultWallpaper picture on the lock screen"
+    } catch {
+        Warn "the lock screen picture could not be set here: $($_.Exception.Message)"
+    }
+}
+
+function Set-MacKeyboard {
+    Step 'Keyboard: Mac shortcuts with the key where Cmd is (Alt)'
+    if ($NoKeyboard -or $NoApps) { Warn 'skipped'; return }
+    $pt = Join-Path $env:LOCALAPPDATA 'Microsoft\PowerToys'
+    $exe = @((Join-Path $env:LOCALAPPDATA 'PowerToys\PowerToys.exe'), (Join-Path $env:ProgramFiles 'PowerToys\PowerToys.exe')) |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $exe) { Warn 'PowerToys is not installed: skipped'; return }
+    # Alt (18) + key -> Ctrl (17) + key, in PowerToys Keyboard Manager (key codes as PowerToys stores them)
+    $maps = @()
+    foreach ($k in @(67, 86, 88, 90, 65, 83, 70, 84, 87, 78, 80, 82, 76)) {   # C V X Z A S F T W N P R L
+        $maps += [ordered]@{ originalKeys = "18;$k"; exactMatch = $false; newRemapKeys = "17;$k" }
+    }
+    foreach ($k in @(90, 84)) {   # Alt+Shift+Z redo, Alt+Shift+T reopen tab
+        $maps += [ordered]@{ originalKeys = "18;16;$k"; exactMatch = $false; newRemapKeys = "17;16;$k" }
+    }
+    $maps += [ordered]@{ originalKeys = '18;81'; exactMatch = $false; newRemapKeys = '18;115' }   # Alt+Q quits (Alt+F4)
+
+    $file = Join-Path $pt 'Keyboard Manager\default.json'
+    Save-File $file
+    $cfg = $null
+    if (Test-Path $file) { try { $cfg = Get-Content -Raw $file | ConvertFrom-Json } catch { $cfg = $null } }
+    $global = @()
+    if ($cfg -and $cfg.PSObject.Properties['remapShortcuts'] -and $cfg.remapShortcuts.PSObject.Properties['global']) {
+        $global = @($cfg.remapShortcuts.global | Where-Object { $_ })
+    }
+    $taken = @($global | ForEach-Object { $_.originalKeys })
+    foreach ($m in $maps) { if ($taken -notcontains $m.originalKeys) { $global += New-Object psobject -Property $m } }
+    if (-not $cfg) {
+        $cfg = New-Object psobject -Property ([ordered]@{
+            remapKeys = [ordered]@{ inProcess = @() }; remapKeysToText = [ordered]@{ inProcess = @() }
+            remapShortcuts = [ordered]@{ global = @(); appSpecific = @() }; remapShortcutsToText = [ordered]@{ global = @(); appSpecific = @() }
+        })
+    }
+    $cfg.remapShortcuts.global = $global
+    $utf8 = New-Object Text.UTF8Encoding $false
+    New-Item -ItemType Directory -Force -Path (Split-Path $file) | Out-Null
+    [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 10), $utf8)
+
+    # Keyboard Manager switched on in PowerToys' own settings
+    $settings = Join-Path $pt 'settings.json'
+    Save-File $settings
+    $s = New-Object psobject
+    if (Test-Path $settings) { try { $s = Get-Content -Raw $settings | ConvertFrom-Json } catch { $s = New-Object psobject } }
+    if (-not $s.PSObject.Properties['enabled']) { $s | Add-Member -NotePropertyName 'enabled' -NotePropertyValue (New-Object psobject) }
+    if ($s.enabled.PSObject.Properties['Keyboard Manager']) { $s.enabled.'Keyboard Manager' = $true }
+    else { $s.enabled | Add-Member -NotePropertyName 'Keyboard Manager' -NotePropertyValue $true }
+    [IO.File]::WriteAllText($settings, (ConvertTo-Json -InputObject $s -Depth 30), $utf8)
+
+    # PowerToys reads them when it starts
+    $running = @(Get-Process -Name 'PowerToys' -ErrorAction SilentlyContinue)
+    if ($running) { $running | Stop-Process -Force; Start-Sleep -Seconds 2; Start-Process -FilePath $exe }
+    Ok 'Alt+C, V, X, Z, A, S, F, T, W, N, P, R, L work like Cmd; Alt+Q quits (PowerToys Keyboard Manager)'
+}
+
 function Install-Terminal {
     Step 'Terminal: the macstyle prompt, colours, font and a see-through window'
     if ($NoTerminal) { Warn 'skipped (-NoTerminal)'; return }
@@ -519,10 +629,12 @@ function Write-Finish {
       - Press Space on a file in File Explorer to preview it; Alt+Space to search.
       - Dark mode (Settings > Personalization > Colors, or Auto Dark Mode's tray icon)
         switches the wallpaper too.
+      - Alt works like Cmd on a Mac: Alt+C copy, Alt+V paste, Alt+Z undo, Alt+S save,
+        Alt+W close, Alt+Q quit (Ctrl works as before). Alt+Space searches.
       - Open Windows Terminal for the macstyle prompt.
 
     Undo everything:  .\windows\uninstall.ps1
-    Log of this run:  $Log
+    Log of this run:  notepad "$Log"
 "@
 }
 
@@ -546,6 +658,10 @@ try {
     Install-Cursor
     Install-Wallpapers
     Set-Desktop
+    Set-Finder
+    Set-QuietSounds
+    Set-LockScreen
+    Set-MacKeyboard
     Install-Terminal
     Write-Finish
 } catch {

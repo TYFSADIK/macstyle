@@ -79,6 +79,12 @@ if (Test-Path $list) {
     }
 }
 Restore-Registry
+$lock = Join-Path $Original 'lockscreen.jpg'
+if (Test-Path $lock) {
+    try { Set-LockScreenImage $lock; Ok 'lock screen picture as before' } catch { Warn "lock screen picture: $($_.Exception.Message)" }
+}
+$pt = @(Get-Process -Name 'PowerToys' -ErrorAction SilentlyContinue)
+if ($pt) { $exe = $pt[0].Path; $pt | Stop-Process -Force; Start-Sleep -Seconds 2; if ($exe) { Start-Process -FilePath $exe } }   # rereads its restored settings
 Update-Icons
 [void][Native]::SystemParametersInfo(0x0057, 0, $null, 3)   # the cursors as they were
 $wall = (Get-ItemProperty 'HKCU:\Control Panel\Desktop' -Name WallPaper -ErrorAction SilentlyContinue).WallPaper

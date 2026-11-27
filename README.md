@@ -1,9 +1,10 @@
 # macstyle
 
-**A macOS-like desktop for Fedora, Ubuntu, Debian and Windows, in one command.**
+**A macOS-like desktop for Fedora, Ubuntu, Debian (GNOME or KDE Plasma) and Windows, in one command.**
 
 [![test](https://github.com/TYFSADIK/macstyle/actions/workflows/test.yml/badge.svg)](https://github.com/TYFSADIK/macstyle/actions/workflows/test.yml)
 ![GNOME 43 to 51](https://img.shields.io/badge/GNOME-43%20to%2051-4a86cf)
+![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-1d99f3)
 ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20and%2011-0078d4)
 [![licence: GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE)
 
@@ -17,7 +18,7 @@ macstyle gives your desktop the macOS features that make daily work easier: a do
 
 ### Linux: Fedora, Ubuntu, Debian
 
-Open a terminal inside your GNOME desktop and run:
+Open a terminal inside your GNOME or KDE Plasma desktop and run:
 
 ```bash
 git clone https://github.com/TYFSADIK/macstyle
@@ -25,7 +26,7 @@ cd macstyle
 ./install.sh
 ```
 
-Then **log out and log back in**: GNOME starts new extensions only at login.
+Then **log out and log back in**: GNOME starts new extensions only at login. Inside KDE Plasma, the same command sets up the [KDE edition](#kde-plasma).
 
 - Type it without `sudo`. It asks for your password itself, once, for a few small packages and a Firefox setting.
 - It takes a minute or two. It downloads the MacTahoe icon theme, a terminal font and Powerlevel10k, and on older GNOME versions the extensions and theme made for that version.
@@ -41,6 +42,16 @@ Then **log out and log back in**: GNOME starts new extensions only at login.
 | Debian 12 | 43 | no top-bar app menus (AppMenu needs GNOME 45); the theme is built for GNOME 43 |
 
 Any GNOME from 43 up works: for each extension, the install uses the bundled copy if it declares your GNOME version, otherwise downloads the release made for it, and skips it with a message if there is none. Nothing made for another version is ever switched on.
+
+### KDE Plasma
+
+The same `./install.sh`, run inside a Plasma 6 desktop (Fedora KDE 40 and newer, Kubuntu 25.04 and newer, Debian 13 with KDE). Plasma 5 (Kubuntu 24.04, Debian 12) is not supported.
+
+| Distribution | Plasma | Tested in CI |
+|---|---|---|
+| Fedora 43, 44 (KDE) | 6.5 to 6.8 | yes |
+| Ubuntu 26.04 (Kubuntu) | 6.x | yes |
+| Debian 13 (KDE) | 6.3 | yes |
 
 ### Windows 10 and 11
 
@@ -110,6 +121,18 @@ Turn on **Dark Style** in Quick Settings and apps, top bar, dock, icons, window 
 
 Quick Look (press Space on a file in Files), a blurred translucent top bar and dock, rounded corners on every window, a matching second top bar on a second monitor, Alt+Tab as a cover flow, a "magic lamp" minimize, desktop icons, clipboard history, Caffeine, and six day-and-night wallpaper pairs from KDE in Settings > Appearance.
 
+### KDE Plasma
+
+- **A top bar** with the menu of your computer, the menus of the app in front (KDE and Qt apps: Dolphin, Kate, Konsole, Okular and more), the tray and the clock.
+- **A dock**: centred, floating, as wide as its icons, and it steps aside when a window needs the space. Plasma's dock does not magnify icons under the pointer.
+- **Window buttons on the left**, in macOS order (close, minimize, maximize).
+- **MacTahoe** for everything: the global theme in light and dark, the Plasma style, colours, window decorations, Kvantum for Qt and KDE apps, the icons and the cursor.
+- **Dark mode**: choose MacTahoe Dark in System Settings > Colors & Themes > Global Theme (Plasma 6.5 and newer can also switch by itself at sunset). Apps, panels, icons, the wallpaper and Konsole follow.
+- **The same terminal**: Konsole with the macstyle colours (light and dark), see-through with blur, and zsh with the round-pill prompt.
+- **Spotlight**: Alt+Space searches apps, files and more (KRunner, part of Plasma).
+
+There is no Space-bar Quick Look in Dolphin; its Information panel (F11) shows a preview of the selected file.
+
 ### Windows
 
 - **A dock and a top bar**, from Seelen UI (open source).
@@ -130,6 +153,8 @@ Windows cannot move window buttons to the left or put an app's menus in the top 
 Packages: the top-bar menu libraries (libdbusmenu), the Apps Menu extension, Sushi (Quick Look), and for the terminal zsh, zsh-autosuggestions, zsh-syntax-highlighting, fzf, zoxide, fastfetch and lsd (downloaded from their projects where the distribution does not package them). GNOME 47 and older also get `sassc` to build the theme.
 
 **Windows.** Apps with winget, started right away and at every sign-in (a shortcut in your Startup folder for Seelen UI and QuickLook; PowerToys and Auto Dark Mode set that up themselves); fonts for your account only (no administrator); the cursor, wallpaper, accent and taskbar settings in your part of the registry; icons: desktop icons in your part of the registry, a hidden desktop.ini in your own folders, the icon of matching app shortcuts, and an icon pack switched on in Seelen UI; with administrator (asked once, `-NoAdmin` skips it) the icon of every folder and the C: drive and of the shortcuts shared by all users, from `%ProgramData%\macstyle`; a hidden dark-mode watcher started from your Startup folder; a marked block in your PowerShell profiles; a Windows Terminal profile.
+
+**KDE Plasma.** Everything goes into your home folder, except two packages (Kvantum and gdbus) and, for the terminal, the same packages as above: MacTahoe KDE (global theme, Plasma style, colours, window decorations, Kvantum theme) in `~/.local/share` and `~/.config/Kvantum`; MacTahoe icons and cursor; six day-and-night wallpaper packages in `~/.local/share/wallpapers`; two Konsole profiles; a small service (`macstyle-kde-darkswitch`, a systemd user unit) that switches Konsole with the theme. The KDE settings files it changes (`kdeglobals`, `kwinrc`, the panels and others) are each saved whole before the first change and put back whole by the uninstall.
 
 Before changing anything, the first run saves your settings and every file it replaces (Linux: `~/.local/state/macstyle/original/`, Windows: `%LOCALAPPDATA%\macstyle\original\`). Running the install again is safe: it keeps that first copy.
 
@@ -156,7 +181,7 @@ It brings back the settings and files saved by the first install, removes what t
 
 ## Tested
 
-Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13, and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension is running, takes a screenshot, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, dark-mode watcher, PowerShell profiles, prompt and Windows Terminal profile, uninstalls and checks the registry is back.
+Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13 (GNOME), Fedora 43 and 44, Ubuntu 26.04 and Debian 13 (KDE Plasma), and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension is running, takes a screenshot, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, dark-mode watcher, PowerShell profiles, prompt and Windows Terminal profile, uninstalls and checks the registry is back.
 
 ![The macstyle desktop on Fedora 44 and 43, Ubuntu 26.04 and 24.04, and Debian 13 and 12, each with the top bar and the dock, as captured by CI](docs/screenshots/tested.jpg)
 
@@ -170,6 +195,8 @@ Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian
 | Debian 12 | 43 | 12 of 12 | Dash2Dock Lite |
 
 Each one uninstalls back to the same settings it started with. The screenshots come from a headless GNOME Shell in a container; they show the top bar and the dock, not a live login with apps open.
+
+**KDE Plasma.** The test starts KWin and Plasma without a screen, installs macstyle, and asks Plasma itself for the result: the global theme, colours, icons, cursor, Kvantum, window decoration and buttons, the two panels and their widgets, the wallpaper, the Konsole profiles. Then it switches to MacTahoe Dark and checks that Kvantum and Konsole follow, uninstalls, and checks that every file under `~/.config` and `~/.local/share` is exactly as before and that Plasma comes back with its own panel. (No screenshots: KWin's screenshot path needs a graphics card, which the test machines do not have.)
 
 ## Good to know
 

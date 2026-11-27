@@ -142,7 +142,12 @@ There is no Space-bar Quick Look in Dolphin; its Information panel (F11) shows a
 - **macOS icons everywhere Windows allows**: blue folders in File Explorer, Desktop, Documents, Downloads and the other folders with their macOS icons, This PC, Recycle Bin and Network on the desktop, the hard drive, app shortcuts in the Start menu, on the desktop and the taskbar, and the apps in the dock (MacTahoe icons).
 - **The macOS cursor**, the **Inter** font (close to SF Pro) and **JetBrains Mono** with icons.
 - **The same terminal**: Windows Terminal with the macstyle colours (light and dark), see-through, and PowerShell with the round-pill prompt (Starship), grey suggestions, `z` jumps, `ls` with icons and fastfetch.
-- Taskbar icons centred, the macOS blue as accent colour.
+- **One bar, like macOS**: Seelen UI hides the Windows taskbar while its dock runs (it comes back if Seelen UI is closed).
+- **Mac shortcuts with the key where Cmd is**: Alt+C copy, Alt+V paste, Alt+X cut, Alt+Z undo, Alt+Shift+Z redo, Alt+A select all, Alt+S save, Alt+F find, Alt+T new tab, Alt+Shift+T reopen tab, Alt+W close, Alt+N new, Alt+P print, Alt+R reload, Alt+L address bar, Alt+Q quit (PowerToys Keyboard Manager). Ctrl works as before. Apps lose their Alt+letter menu keys; `-NoKeyboard` leaves the keyboard alone.
+- **Quiet, like a Mac**: no sounds for clicks, folders, devices and the like; notifications and alerts keep theirs.
+- **The lock screen** shows the same picture as the desktop (Windows Spotlight off).
+- **File Explorer like Finder**: file names without extensions, no status bar or tick boxes, no OneDrive banners, Gallery out of the sidebar (Home, with your recent files, stays: it is Finder's Recents).
+- Taskbar icons centred, the macOS blue as accent colour. Touchpads already scroll the Mac way ("natural") on Windows by default.
 
 Windows cannot move window buttons to the left or put an app's menus in the top bar; macstyle does not pretend to. Icons that apps draw themselves (inside their windows, and Store apps in the taskbar) keep their own look.
 
@@ -167,6 +172,7 @@ Before changing anything, the first run saves your settings and every file it re
 | `--no-apps` | `-NoApps` | Linux: leave VS Code, Chrome and Firefox alone. Windows: no dock, top bar, Quick Look, search or dark-mode apps. |
 | `--no-terminal` | `-NoTerminal` | Leave the terminal and the shell alone. |
 | | `-NoIcons` | Leave all icons alone. |
+| | `-NoKeyboard` | No Mac shortcuts with Alt. |
 | | `-NoAdmin` | Skip the step that needs administrator (every folder, the C: drive, shared shortcuts). |
 | `--force` | | Run on a distribution that is not Fedora, Ubuntu or Debian. |
 

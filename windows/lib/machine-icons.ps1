@@ -38,8 +38,8 @@ $SharedShortcuts = @(
 
 try {
     if ($Remove) {
+        Restore-Registry   # first: the folder and drive icons matter most
         Restore-Files
-        Restore-Registry
         $list = Join-Path $State 'installed.txt'
         if (Test-Path $list) {
             $paths = @(Get-Content $list)

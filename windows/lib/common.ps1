@@ -149,14 +149,25 @@ function Put-File([string]$Src, [string]$Dest) {
 }
 
 function Restore-Files {
+    # One file Windows will not let us write (some shared shortcuts belong to Windows itself) is
+    # reported and skipped: the others, and the registry after them, are still put back
     foreach ($e in (Read-Json (Join-Path $Original 'files.json'))) {
-        if ($e.Backup -and (Test-Path $e.Backup)) {
-            New-Item -ItemType Directory -Force -Path (Split-Path $e.Path) | Out-Null
-            # Hidden or system files (desktop.ini) cannot be overwritten until they are normal files
-            if (Test-Path -LiteralPath $e.Path -PathType Leaf) { (Get-Item -LiteralPath $e.Path -Force).Attributes = 'Normal' }
-            Copy-Item -Path $e.Backup -Destination $e.Path -Recurse -Force
-        } elseif (Test-Path $e.Path) {
-            Remove-Item -Path $e.Path -Recurse -Force
+        try {
+            if ($e.Backup -and (Test-Path -LiteralPath $e.Backup)) {
+                New-Item -ItemType Directory -Force -Path (Split-Path $e.Path) | Out-Null
+                # Hidden or system files (desktop.ini) cannot be overwritten until they are normal files
+                if (Test-Path -LiteralPath $e.Path -PathType Leaf) {
+                    $item = Get-Item -LiteralPath $e.Path -Force
+                    if ($item.Attributes -band ([IO.FileAttributes]::Hidden -bor [IO.FileAttributes]::System -bor [IO.FileAttributes]::ReadOnly)) {
+                        $item.Attributes = 'Normal'
+                    }
+                }
+                Copy-Item -LiteralPath $e.Backup -Destination $e.Path -Recurse -Force
+            } elseif (Test-Path -LiteralPath $e.Path) {
+                Remove-Item -LiteralPath $e.Path -Recurse -Force
+            }
+        } catch {
+            Warn "$($e.Path) could not be put back: $($_.Exception.Message)"
         }
     }
 }
@@ -272,6 +283,8 @@ function Set-ShortcutIcons([string[]]$Dirs, [string]$IcoDir) {
             try {
                 $s = $shell.CreateShortcut($f.FullName)
                 if ($s.IconLocation -eq $want) { continue }
+                # Some shared shortcuts belong to Windows itself and cannot be changed: leave them
+                try { [IO.File]::Open($f.FullName, 'Open', 'ReadWrite', 'ReadWrite').Close() } catch { continue }
                 Save-File $f.FullName
                 $s.IconLocation = $want
                 $s.Save()

@@ -76,6 +76,8 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'windows\uninstall.ps1') -Yes
 Check 'uninstall.ps1 finished' ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
+$machineLog = Join-Path $env:ProgramData 'macstyle\machine-icons.log'
+if (Test-Path $machineLog) { Write-Host '--- machine-icons.log after uninstall'; Get-Content $machineLog | Select-Object -Last 40 | Write-Host }
 $diff = @()
 foreach ($w in $watch) { $k = "$($w[0])|$($w[1])"; $now = RegVal $w[0] $w[1]; if ($now -ne $before[$k]) { $diff += "$k : $($before[$k]) -> $now" } }
 Check 'registry back as before' ($diff.Count -eq 0) ($diff -join '; ')

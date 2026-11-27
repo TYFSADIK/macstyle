@@ -348,14 +348,254 @@ function Set-LockScreenImage([string]$Path) {
 }
 
 function Save-LockScreenImage([string]$Dest) {
-    # The picture on the lock screen now, kept so the uninstall can put it back
-    Add-Type -AssemblyName System.Runtime.WindowsRuntime   # AsStreamForRead
+    # The picture on the lock screen now, kept so the uninstall can put it back. $Dest has no
+    # extension: .png or .jpg is added from what the picture really is. Returns the file, or $null.
+    # (Read through a DataReader: Windows PowerShell 5.1 cannot pick the AsStreamForRead overload
+    # for the Windows Runtime stream, which failed on real Windows 11 machines.)
     [void][Windows.System.UserProfile.LockScreen, Windows.System.UserProfile, ContentType = WindowsRuntime]
+    [void][Windows.Storage.Streams.DataReader, Windows.Storage.Streams, ContentType = WindowsRuntime]
     $stream = [Windows.System.UserProfile.LockScreen]::GetImageStream()
-    if (-not $stream) { return $false }
-    $in = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+    if (-not $stream) { return $null }
+    $reader = New-Object Windows.Storage.Streams.DataReader ($stream.GetInputStreamAt(0))
+    try {
+        $got = Invoke-WinRT ($reader.LoadAsync([uint32]$stream.Size)) ([uint32])
+        if (-not $got) { return $null }
+        $bytes = New-Object byte[] $got
+        $reader.ReadBytes($bytes)
+    } finally { $reader.Dispose(); $stream.Dispose() }
+    $ext = if ($bytes.Length -gt 4 -and $bytes[0] -eq 0x89 -and $bytes[1] -eq 0x50) { '.png' } else { '.jpg' }
     New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null
-    $out = [IO.File]::Create($Dest)
-    try { $in.CopyTo($out) } finally { $out.Close(); $in.Close() }
+    [IO.File]::WriteAllBytes("$Dest$ext", $bytes)
+    return "$Dest$ext"
+}
+
+function Get-SavedLockScreen {
+    # The lock screen picture saved by the install (lockscreen.png or .jpg), or $null
+    Get-ChildItem -Path $Original -Filter 'lockscreen.*' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in '.png', '.jpg' } | Select-Object -First 1 -ExpandProperty FullName
+}
+
+# ------------------------------------------------------------------------- Seelen UI: bar and dock
+
+$SeelenRoot = Join-Path $env:APPDATA 'com.seelen.seelen-ui'
+
+function Get-Seelen {
+    # Seelen UI's Start menu entry, or $null
+    try { return Get-StartApps | Where-Object { $_.Name -eq 'Seelen UI' } | Select-Object -First 1 } catch { return $null }
+}
+
+function Stop-Seelen {
+    # Seelen UI keeps its settings and layouts in memory and writes them back, and its service (which
+    # runs as administrator) starts it again when it is killed: it is asked to quit (slu quit), and
+    # only stopped by force if it does not
+    $running = @(Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)
+    if (-not $running) { return $false }
+    $slu = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\slu.exe'
+    if (-not (Test-Path $slu)) { $c = Get-Command slu.exe -ErrorAction SilentlyContinue; if ($c) { $slu = $c.Source } }
+    if (Test-Path $slu) { try { & $slu quit 2>$null | Out-Null } catch { } }
+    for ($i = 0; $i -lt 15 -and (Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+    $left = @(Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)
+    if ($left) { $left | Stop-Process -Force -ErrorAction SilentlyContinue }
+    Start-Sleep -Seconds 1
     return $true
+}
+
+function Start-Seelen {
+    $seelen = Get-Seelen
+    if ($seelen -and -not (Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)) {
+        Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList "shell:AppsFolder\$($seelen.AppID)"
+    }
+}
+
+function Set-JsonPath($Object, [string[]]$Path, $Value) {
+    # Sets $Object.a.b.c = $Value, creating the objects on the way
+    $o = $Object
+    for ($i = 0; $i -lt $Path.Count - 1; $i++) {
+        $n = $Path[$i]
+        if (-not $o.PSObject.Properties[$n] -or $null -eq $o.$n) {
+            if ($o.PSObject.Properties[$n]) { $o.$n = New-Object psobject } else { $o | Add-Member -NotePropertyName $n -NotePropertyValue (New-Object psobject) }
+        }
+        $o = $o.$n
+    }
+    $last = $Path[-1]
+    if ($o.PSObject.Properties[$last]) { $o.$last = $Value } else { $o | Add-Member -NotePropertyName $last -NotePropertyValue $Value }
+}
+
+function Get-JsonPath($Object, [string[]]$Path) {
+    # @{ Exists; Value } of $Object.a.b.c
+    $o = $Object
+    foreach ($n in $Path) {
+        if ($null -eq $o -or -not ($o -is [psobject]) -or -not $o.PSObject.Properties[$n]) { return @{ Exists = $false; Value = $null } }
+        $o = $o.$n
+    }
+    return @{ Exists = $true; Value = $o }
+}
+
+# Seelen UI settings macstyle sets: the bar and dock look, the clock like the macOS menu bar, and
+# Seelen's own wallpaper off (it covered the macstyle wallpaper, and stops with an error whenever
+# File Explorer restarts)
+$SeelenSettings = @(
+    @(@('byWidget', '@seelen/wallpaper-manager', 'enabled'), $false),
+    @(@('byWidget', '@seelen/fancy-toolbar', 'enabled'), $true),
+    @(@('byWidget', '@seelen/fancy-toolbar', 'position'), 'Top'),
+    @(@('byWidget', '@seelen/fancy-toolbar', 'hideMode'), 'Never'),
+    @(@('byWidget', '@seelen/weg', 'enabled'), $true),
+    @(@('byWidget', '@seelen/weg', 'position'), 'Bottom'),
+    @(@('byWidget', '@seelen/weg', 'size'), 44),
+    @(@('byWidget', '@seelen/weg', 'showInstanceCounter'), $false),
+    @(@('byWidget', '@seelen/weg', 'showWindowTitle'), $false),
+    @(@('dateFormat'), 'ddd D MMM  h:mm A')
+)
+
+function New-SeelenId { [guid]::NewGuid().ToString() }
+
+function New-ToolbarLayout {
+    # The macOS menu bar: the system menu (sleep, restart, shut down, lock, sign out) behind the
+    # Windows logo where the Apple menu is, the name of the app in front in bold ("Finder" for the
+    # desktop and File Explorer); on the right the status icons, Control Centre, notifications and
+    # the date and time
+    $logo = [ordered]@{
+        id = (New-SeelenId); scopes = @(); template = 'return Icon({ name: "BsWindows" })'; render = $null; canvasSize = $null
+        tooltip = 'return "Shut down, restart, sleep, lock, sign out"'; badge = $null
+        onClick = 'trigger("@seelen/power-menu")'; onWheelUp = $null; onWheelDown = $null
+        style = [ordered]@{ paddingLeft = '6px'; paddingRight = '10px' }; remoteData = [ordered]@{}
+    }
+    $app = [ordered]@{
+        id = (New-SeelenId); scopes = @('FocusedApp')
+        template = 'const exe = ((focusedApp && focusedApp.exe) || "").toLowerCase(); const name = (focusedApp && focusedApp.name) || ""; return (!name || exe.endsWith("explorer.exe") || exe.endsWith("seelen-ui.exe")) ? "Finder" : name;'
+        render = $null; canvasSize = $null; tooltip = $null; badge = $null; onClick = $null; onWheelUp = $null; onWheelDown = $null
+        style = [ordered]@{ fontWeight = 700 }; remoteData = [ordered]@{}
+    }
+    return [ordered]@{
+        isReorderDisabled = $false
+        left              = @($logo, $app)
+        center            = @()
+        right             = @('@seelen/tb-system-tray', '@seelen/tb-bluetooth-popup', '@seelen/tb-network-popup', '@seelen/tb-media-popup',
+            '@default/power', '@seelen/tb-quick-settings', '@seelen/tb-notifications', '@seelen/tb-calendar-popup')
+    }
+}
+
+function Get-DockPinnedBlocks([string]$Path) {
+    # The apps pinned in Seelen UI's dock, each as its YAML text, in order (File Explorer left out:
+    # it is Finder, first). Seelen writes state.yml as YAML: an item starts with "- type:" at the
+    # start of a line and its fields follow, indented. A file macstyle wrote itself is JSON.
+    $blocks = New-Object System.Collections.Generic.List[string]
+    if (-not $Path -or -not (Test-Path $Path)) { return ,$blocks }
+    $text = Get-Content -Raw $Path
+    if ($text -match '^\s*\{') {
+        try {
+            $j = $text | ConvertFrom-Json
+            foreach ($side in 'left', 'center', 'right') {
+                foreach ($i in @($j.$side)) {
+                    if (-not $i -or $i.type -ne 'AppOrFile' -or -not $i.pinned) { continue }
+                    if ([IO.Path]::GetFileName([string]$i.path) -eq 'explorer.exe') { continue }
+                    $blocks.Add((ConvertTo-DockYaml $i))
+                }
+            }
+        } catch { }
+        return ,$blocks
+    }
+    $cur = $null
+    $flush = {
+        if ($cur -and $cur -match '^- type: (AppOrFile|PinnedApp|Pinned)\b' -and $cur -match '(?m)^  pinned: true' -and
+            $cur -notmatch "(?mi)^  path: '?.*\\explorer\.exe'?\s*$") { $blocks.Add($cur.TrimEnd()) }
+    }
+    foreach ($l in ($text -split "`r?`n")) {
+        if ($l -match '^- ') { & $flush; $cur = $l + "`n" }
+        elseif ($l -match '^\s' -and $cur) { $cur += $l + "`n" }
+        else { & $flush; $cur = $null }
+    }
+    & $flush
+    return ,$blocks
+}
+
+function ConvertTo-YamlScalar($v) {
+    if ($null -eq $v) { return 'null' }
+    if ($v -is [bool]) { return $v.ToString().ToLower() }
+    return "'" + ([string]$v).Replace("'", "''") + "'"
+}
+
+function ConvertTo-DockYaml($Item) {
+    # One dock item (type, id, and an app's fields) as Seelen UI writes it
+    $o = "- type: $($Item.type)`n  id: $($Item.id)"
+    foreach ($k in 'displayName', 'umid', 'path', 'pinned', 'preventPinning', 'plugin') {
+        if ($Item -is [System.Collections.IDictionary]) { if (-not $Item.Contains($k)) { continue }; $v = $Item[$k] }
+        else { if (-not $Item.PSObject.Properties[$k]) { continue }; $v = $Item.$k }
+        $o += "`n  ${k}: $(ConvertTo-YamlScalar $v)"
+    }
+    if ($Item.type -eq 'AppOrFile') { $o += "`n  relaunch: null" }
+    return $o
+}
+
+function New-DockLayout([string]$Current) {
+    # The macOS dock: Finder first, then Launchpad (all apps), the apps already pinned (kept, in
+    # their order), Terminal and System Settings; the Trash at the end, after a divider. Returns
+    # @{ Yaml; Count }.
+    $pinned = Get-DockPinnedBlocks $Current
+    $center = New-Object System.Collections.Generic.List[string]
+    $center.Add((ConvertTo-DockYaml ([ordered]@{ type = 'AppOrFile'; id = (New-SeelenId); displayName = 'Finder'; umid = $null; path = (Join-Path $env:WINDIR 'explorer.exe'); pinned = $true; preventPinning = $false })))
+    $center.Add((ConvertTo-DockYaml ([ordered]@{ type = 'Plugin'; id = (New-SeelenId); plugin = '@default/weg-start-menu' })))
+    foreach ($b in $pinned) { $center.Add($b) }
+    $apps = @(); try { $apps = @(Get-StartApps) } catch { }
+    foreach ($want in @(@('^(Windows )?Terminal$', 'Terminal'), @('^Settings$', 'System Settings'))) {
+        $a = $apps | Where-Object { $_.Name -match $want[0] -and -not (Test-Path -LiteralPath $_.AppID) } | Select-Object -First 1
+        if ($a -and -not ($pinned | Where-Object { $_.Contains($a.AppID) })) {
+            $center.Add((ConvertTo-DockYaml ([ordered]@{ type = 'AppOrFile'; id = (New-SeelenId); displayName = $want[1]; umid = $a.AppID; path = ''; pinned = $true; preventPinning = $false })))
+        }
+    }
+    $right = @((ConvertTo-DockYaml ([ordered]@{ type = 'Separator'; id = (New-SeelenId) })),
+        (ConvertTo-DockYaml ([ordered]@{ type = 'Plugin'; id = (New-SeelenId); plugin = '@default/weg-trash-bin' })))
+    $yaml = "isReorderDisabled: false`nleft: []`ncenter:`n" + ($center -join "`n") + "`nright:`n" + ($right -join "`n") + "`n"
+    return @{ Yaml = $yaml; Count = $center.Count }
+}
+
+function Set-SeelenLook {
+    # Writes the macOS layout of the top bar and the dock, and the settings above. What was there
+    # is kept first: the two layout files with Save-File, each setting in original\seelen.json.
+    # Seelen UI must not be running while this writes.
+    $utf8 = New-Object Text.UTF8Encoding $false
+    $file = Join-Path $SeelenRoot 'settings.json'
+    $cfg = New-Object psobject
+    if (Test-Path $file) { $cfg = Get-Content -Raw $file | ConvertFrom-Json }
+    $savedFile = Join-Path $Original 'seelen.json'
+    if (-not (Test-Path $savedFile)) {
+        $saved = @()
+        foreach ($s in $SeelenSettings) {
+            $now = Get-JsonPath $cfg $s[0]
+            $saved += [ordered]@{ Path = $s[0]; Exists = $now.Exists; Value = $now.Value }
+        }
+        New-Item -ItemType Directory -Force -Path $Original | Out-Null
+        [IO.File]::WriteAllText($savedFile, (ConvertTo-Json -InputObject @($saved) -Depth 10), $utf8)
+    }
+    foreach ($s in $SeelenSettings) { Set-JsonPath $cfg $s[0] $s[1] }
+    New-Item -ItemType Directory -Force -Path $SeelenRoot | Out-Null
+    [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 30), $utf8)
+
+    # The layouts (JSON is valid YAML)
+    $toolbar = Join-Path $SeelenRoot 'data\seelen-fancy-toolbar\state.yml'
+    $dock = Join-Path $SeelenRoot 'data\seelen-weg\state.yml'
+    Save-File $toolbar
+    Save-File $dock
+    $dockLayout = New-DockLayout $dock
+    New-Item -ItemType Directory -Force -Path (Split-Path $toolbar), (Split-Path $dock) | Out-Null
+    [IO.File]::WriteAllText($toolbar, (ConvertTo-Json -InputObject (New-ToolbarLayout) -Depth 10), $utf8)
+    [IO.File]::WriteAllText($dock, $dockLayout.Yaml, $utf8)
+    return $dockLayout.Count
+}
+
+function Restore-SeelenLook {
+    # The settings Set-SeelenLook changed, as they were (the layout files come back with Restore-Files)
+    $savedFile = Join-Path $Original 'seelen.json'
+    $file = Join-Path $SeelenRoot 'settings.json'
+    if (-not (Test-Path $savedFile) -or -not (Test-Path $file)) { return }
+    $cfg = Get-Content -Raw $file | ConvertFrom-Json
+    foreach ($s in @(Get-Content -Raw $savedFile | ConvertFrom-Json)) {
+        $path = @($s.Path)
+        if ($s.Exists) { Set-JsonPath $cfg $path $s.Value; continue }
+        if ($path.Count -eq 1) { $cfg.PSObject.Properties.Remove($path[0]); continue }
+        $parent = Get-JsonPath $cfg $path[0..($path.Count - 2)]
+        if ($parent.Exists -and $null -ne $parent.Value) { $parent.Value.PSObject.Properties.Remove($path[-1]) }
+    }
+    $utf8 = New-Object Text.UTF8Encoding $false
+    [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 30), $utf8)
 }

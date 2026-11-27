@@ -82,16 +82,27 @@ function Test-Preflight {
     if (-not $HaveWinget) { Warn 'winget is missing (install "App Installer" from the Microsoft Store): apps and terminal tools are skipped' }
 }
 
-function Install-WingetApp([string]$Id, [string]$What, [string]$Source = 'winget') {
+function Install-WingetApp([string]$Id, [string]$What, [string]$Source = 'winget', [switch]$User) {
     $listed = winget list --id $Id -e --source $Source --accept-source-agreements 2>$null | Out-String
     if ($listed -match [regex]::Escape($Id)) { Ok "$What (already installed)"; return }
     Info "installing $What..."
-    winget install --id $Id -e --source $Source --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    # Another installation still running (Windows Update, the Store, an earlier app) is waited out
+    # -User: for you only, without administrator (fzf, for one, became an all-users .msi in 2026 and
+    # keeps its portable zip for this scope); the default scope is tried when there is no such installer
+    $scope = if ($User) { @('--scope', 'user') } else { @() }
+    for ($try = 1; $try -le 4; $try++) {
+        winget install --id $Id -e --source $Source @scope --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
+        $code = $LASTEXITCODE
+        if ($code -ne 0 -and $scope -and $code -notin @(-1978334974, -1978334975)) { $scope = @(); $try--; continue }
+        if ($code -notin @(-1978334974, -1978334975) -or $try -eq 4) { break }   # 0x8A150102 install in progress, 0x8A150101 package in use
+        Info "another installation is running; trying again in 30 seconds ($try of 3)..."
+        Start-Sleep -Seconds 30
+    }
+    if ($code -eq 0) {
         Add-Content -Path (Join-Path $State 'winget.txt') -Value $Id
         Ok $What
     } else {
-        Warn "$What did not install (winget exit code $LASTEXITCODE)"
+        Warn "$What did not install (winget exit code $code)"
     }
 }
 
@@ -190,7 +201,30 @@ function Set-FolderIcon([string]$Folder, [string]$Icon) {
     $d = Get-Item -LiteralPath $Folder -Force
     if (-not ($d.Attributes -band ([IO.FileAttributes]::ReadOnly -bor [IO.FileAttributes]::System))) {
         $d.Attributes = $d.Attributes -bor [IO.FileAttributes]::ReadOnly
+        Add-Content -Path (Join-Path $Original 'readonly-folders.txt') -Value $Folder   # cleared again by the uninstall
     }
+}
+
+function Set-ContentFolderIcons([string[]]$Parents, [string]$Icon, [int]$Max = 600) {
+    # Windows 11 draws a folder that has files in it from its contents (the yellow folder with a
+    # page), ignoring the folder icon set for the whole computer: only a folder's own icon wins over
+    # that. So the folders you see (on the desktop and directly in your folders) get their own.
+    # Folders with an icon of their own already, hidden or system folders and links are left alone.
+    $n = 0
+    foreach ($parent in $Parents) {
+        if (-not $parent -or -not (Test-Path -LiteralPath $parent -PathType Container)) { continue }
+        foreach ($d in @(Get-ChildItem -LiteralPath $parent -Directory -ErrorAction SilentlyContinue)) {
+            if ($n -ge $Max) { return $n }
+            if ($d.Name.StartsWith('.') -or $d.Attributes -band ([IO.FileAttributes]::Hidden -bor [IO.FileAttributes]::System -bor [IO.FileAttributes]::ReparsePoint)) { continue }
+            $ini = Join-Path $d.FullName 'desktop.ini'
+            if (Test-Path -LiteralPath $ini) {
+                $text = Get-Content -LiteralPath $ini -Raw -ErrorAction SilentlyContinue
+                if ($text -match '(?im)^\s*(IconResource|IconFile)\s*=' -and $text -notmatch [regex]::Escape($State)) { continue }
+            }
+            try { Set-FolderIcon $d.FullName $Icon; $n++ } catch { }
+        }
+    }
+    return $n
 }
 
 function Install-SeelenIcons([string]$SvgDir) {
@@ -234,6 +268,7 @@ function Install-SeelenIcons([string]$SvgDir) {
     & $add 'path' (Join-Path $env:WINDIR 'explorer.exe') 'finder'
     & $add 'umid' 'Microsoft.Windows.Explorer' 'finder'
     $entries.Add([ordered]@{ type = 'custom'; key = '@seelen/weg::folder'; icon = [ordered]@{ base = 'icons/folder.svg' } })
+    $entries.Add([ordered]@{ type = 'custom'; key = '@seelen/weg::start-menu'; icon = [ordered]@{ base = 'icons/launchpad.svg' } })
 
     $meta = [ordered]@{
         id       = '@macstyle/icons'
@@ -244,14 +279,13 @@ function Install-SeelenIcons([string]$SvgDir) {
     $utf8 = New-Object Text.UTF8Encoding $false
     [IO.File]::WriteAllText((Join-Path $pack 'metadata.yml'), (ConvertTo-Json -InputObject $meta -Depth 6), $utf8)
 
-    # Switch the pack on. Seelen UI writes its settings when it closes, so it is stopped first.
-    $running = @(Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)
-    if ($running) { $running | Stop-Process -Force; Start-Sleep -Seconds 2 }
+    # Switch the pack on (Seelen UI stopped while its settings are written)
+    [void](Stop-Seelen)
     $settings = Join-Path $root 'settings.json'
     $keep = Join-Path $Original 'seelen-settings.json'
     if ((Test-Path $settings) -and -not (Test-Path $keep)) { Copy-Item $settings $keep }   # a copy, just in case
     Set-SeelenIconPack $true
-    if ($seelen) { Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList "shell:AppsFolder\$($seelen.AppID)" }
+    Start-Seelen
     Ok "dock: $($entries.Count) apps and places with macOS icons (Seelen UI icon pack)"
 }
 
@@ -296,6 +330,9 @@ function Install-Icons {
         catch { Warn "${f}: $($_.Exception.Message)" }
     }
     Ok "your folders: $($done -join ', ')"
+    $parents = @([Environment]::GetFolderPath('Desktop')) + @($folders.Keys) + @($HOME)
+    $m = Set-ContentFolderIcons ($parents | Select-Object -Unique) (Join-Path $ico 'folder.ico')
+    Ok "$m folders on your desktop and in your folders: the blue macOS folder"
 
     # Shortcuts: your Start menu, desktop and taskbar pins
     $n = Set-ShortcutIcons @(
@@ -303,7 +340,8 @@ function Install-Icons {
         [Environment]::GetFolderPath('Desktop'),
         (Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar')
     ) $ico
-    Ok "$n app shortcuts in your Start menu, desktop and taskbar"
+    if ($n) { Ok "$n app shortcuts in your Start menu, desktop and taskbar" }
+    else { Ok 'app shortcuts in your Start menu, desktop and taskbar: already done' }
 
     if (-not $NoApps) { Install-SeelenIcons (Join-Path $dir 'svg') }
     Update-Icons
@@ -429,6 +467,17 @@ function Install-Wallpapers {
     Ok "six day-and-night pairs in $dest; `"$DefaultWallpaper`" set"
 }
 
+function Set-TopBarAndDock {
+    Step 'Top bar and dock like macOS (Seelen UI)'
+    if ($NoApps) { Warn 'skipped (-NoApps)'; return }
+    if (-not (Get-Seelen) -and -not (Test-Path $SeelenRoot)) { Warn 'Seelen UI is not installed: skipped'; return }
+    [void](Stop-Seelen)
+    $n = Set-SeelenLook
+    Start-Seelen
+    Ok 'top bar: system menu, the app name in bold, status icons, Control Centre and the clock on the right'
+    Ok "dock: Finder, Launchpad and $($n - 2) more, the Trash after a divider; Seelen's own wallpaper off"
+}
+
 function Set-Desktop {
     Step 'Desktop settings'
     $adv = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -474,7 +523,8 @@ function Set-QuietSounds {
             $n++
         }
     }
-    Ok "$n event sounds off; notifications and alerts keep theirs"
+    if ($n) { Ok "$n event sounds off; notifications and alerts keep theirs" }
+    else { Ok 'event sounds already off; notifications and alerts keep theirs' }
 }
 
 function Set-LockScreen {
@@ -482,12 +532,24 @@ function Set-LockScreen {
     $pic = Join-Path $State "wallpapers\$DefaultWallpaper-l.jpg"
     if (-not (Test-Path $pic)) { Warn 'no wallpaper to use: skipped'; return }
     try {
-        $saved = Join-Path $Original 'lockscreen.jpg'
-        if (-not (Test-Path $saved) -and -not (Test-Path (Join-Path $Original 'lockscreen-none.txt'))) {
-            if (-not (Save-LockScreenImage $saved)) { Set-Content (Join-Path $Original 'lockscreen-none.txt') 'none' }
+        $cdm = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+        $none = Join-Path $Original 'lockscreen-none.txt'
+        if (-not (Get-SavedLockScreen) -and -not (Test-Path $none)) {
+            $saved = $null; $why = $null
+            try { $saved = Save-LockScreenImage (Join-Path $Original 'lockscreen') } catch { $why = $_.Exception.Message }
+            if (-not $saved) {
+                # Some Windows 11 builds do not hand the picture over. With Windows Spotlight on (the
+                # default) nothing is lost: the uninstall switches Spotlight back on. A picture of your
+                # own that cannot be kept is left where it is.
+                $spot = (Get-ItemProperty $cdm -Name RotatingLockScreenEnabled -ErrorAction SilentlyContinue)
+                if ($why -and $spot -and $spot.RotatingLockScreenEnabled -eq 0) {
+                    Warn 'your own lock screen picture could not be saved for the uninstall, so it stays as it is'
+                    return
+                }
+                Set-Content $none $(if ($why) { 'spotlight' } else { 'none' })
+            }
         }
         # Windows Spotlight would replace it with its own pictures
-        $cdm = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
         Set-RegValue $cdm 'RotatingLockScreenEnabled' 0 'DWord'
         Set-RegValue $cdm 'RotatingLockScreenOverlayEnabled' 0 'DWord'
         Set-LockScreenImage $pic
@@ -555,7 +617,7 @@ function Install-Terminal {
     Step 'Terminal: the macstyle prompt, colours, font and a see-through window'
     if ($NoTerminal) { Warn 'skipped (-NoTerminal)'; return }
     if ($HaveWinget) {
-        foreach ($a in $TerminalApps) { Install-WingetApp $a[0] $a[1] }
+        foreach ($a in $TerminalApps) { Install-WingetApp $a[0] $a[1] -User }
         if (-not (Get-Command wt.exe -ErrorAction SilentlyContinue)) { Install-WingetApp 'Microsoft.WindowsTerminal' 'Windows Terminal' }
     }
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'User') + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine')
@@ -624,6 +686,7 @@ function Write-Finish {
 
     After that:
       - The dock and top bar run from Seelen UI (its settings: right-click the top bar).
+        Click the Windows logo at the top left to sleep, restart, shut down or lock.
         It, QuickLook, PowerToys and Auto Dark Mode start by themselves at every sign-in.
       - Icons: some apps and taskbar pins show the new icon only after signing in again.
       - Press Space on a file in File Explorer to preview it; Alt+Space to search.
@@ -654,6 +717,7 @@ try {
     Start-AppsAtSignIn
     Install-Icons
     Install-MachineIcons
+    Set-TopBarAndDock
     Install-Fonts
     Install-Cursor
     Install-Wallpapers

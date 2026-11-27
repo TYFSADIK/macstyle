@@ -135,21 +135,22 @@ There is no Space-bar Quick Look in Dolphin; its Information panel (F11) shows a
 
 ### Windows
 
-- **A dock and a top bar**, from Seelen UI (open source).
+- **A top bar like the macOS menu bar**, from Seelen UI (open source): the Windows logo where the Apple menu is (click it to sleep, restart, shut down, lock or sign out), the name of the app in front in bold ("Finder" on the desktop and in File Explorer), and on the right the status icons, Control Centre, notifications and the date and time ("Fri 27 Nov 2:53 AM").
+- **A dock like the macOS dock**: Finder first, then Launchpad (all your apps), the apps you had pinned, Terminal and System Settings, and the Trash at the end after a divider. Seelen UI's own wallpaper is switched off so the macstyle wallpaper shows.
 - **Quick Look**: press Space on a file in File Explorer to preview it (QuickLook).
 - **Spotlight**: Alt+Space searches apps, files and more (PowerToys).
 - **Dark mode on a schedule** with a tray switch (Auto Dark Mode), and **wallpapers that follow it**: the day picture in light mode, the night one in dark mode.
-- **macOS icons everywhere Windows allows**: blue folders in File Explorer, Desktop, Documents, Downloads and the other folders with their macOS icons, This PC, Recycle Bin and Network on the desktop, the hard drive, app shortcuts in the Start menu, on the desktop and the taskbar, and the apps in the dock (MacTahoe icons).
+- **macOS icons everywhere Windows allows**: blue folders in File Explorer and on the desktop (Windows 11 draws a folder with files in it from its contents, so the folders on your desktop and directly in your folders each get the blue folder of their own; folders you make later show it in lists and the sidebar), Desktop, Documents, Downloads and the other folders with their macOS icons, This PC, Recycle Bin and Network on the desktop, the hard drive, app shortcuts in the Start menu, on the desktop and the taskbar, and the apps in the dock (MacTahoe icons).
 - **The macOS cursor**, the **Inter** font (close to SF Pro) and **JetBrains Mono** with icons.
 - **The same terminal**: Windows Terminal with the macstyle colours (light and dark), see-through, and PowerShell with the round-pill prompt (Starship), grey suggestions, `z` jumps, `ls` with icons and fastfetch.
 - **One bar, like macOS**: Seelen UI hides the Windows taskbar while its dock runs (it comes back if Seelen UI is closed).
 - **Mac shortcuts with the key where Cmd is**: Alt+C copy, Alt+V paste, Alt+X cut, Alt+Z undo, Alt+Shift+Z redo, Alt+A select all, Alt+S save, Alt+F find, Alt+T new tab, Alt+Shift+T reopen tab, Alt+W close, Alt+N new, Alt+P print, Alt+R reload, Alt+L address bar, Alt+Q quit (PowerToys Keyboard Manager). Ctrl works as before. Apps lose their Alt+letter menu keys; `-NoKeyboard` leaves the keyboard alone.
 - **Quiet, like a Mac**: no sounds for clicks, folders, devices and the like; notifications and alerts keep theirs.
-- **The lock screen** shows the same picture as the desktop (Windows Spotlight off).
+- **The lock screen** shows the same picture as the desktop (Windows Spotlight off; the uninstall switches it back on, or puts your own picture back).
 - **File Explorer like Finder**: file names without extensions, no status bar or tick boxes, no OneDrive banners, Gallery out of the sidebar (Home, with your recent files, stays: it is Finder's Recents).
 - Taskbar icons centred, the macOS blue as accent colour. Touchpads already scroll the Mac way ("natural") on Windows by default.
 
-Windows cannot move window buttons to the left or put an app's menus in the top bar; macstyle does not pretend to. Icons that apps draw themselves (inside their windows, and Store apps in the taskbar) keep their own look.
+Windows cannot move window buttons to the left or put an app's menus in the top bar; macstyle does not pretend to. Icons that apps draw themselves (inside their windows, and Store apps in the taskbar) keep their own look. Shortcuts keep their small arrow (macOS aliases have one too): hiding it draws black squares on current Windows 11.
 
 ## What the install changes
 
@@ -157,7 +158,7 @@ Windows cannot move window buttons to the left or put an app's menus in the top 
 
 Packages: the top-bar menu libraries (libdbusmenu), the Apps Menu extension, Sushi (Quick Look), and for the terminal zsh, zsh-autosuggestions, zsh-syntax-highlighting, fzf, zoxide, fastfetch and lsd (downloaded from their projects where the distribution does not package them). GNOME 47 and older also get `sassc` to build the theme.
 
-**Windows.** Apps with winget, started right away and at every sign-in (a shortcut in your Startup folder for Seelen UI and QuickLook; PowerToys and Auto Dark Mode set that up themselves); fonts for your account only (no administrator); the cursor, wallpaper, accent and taskbar settings in your part of the registry; icons: desktop icons in your part of the registry, a hidden desktop.ini in your own folders, the icon of matching app shortcuts, and an icon pack switched on in Seelen UI; with administrator (asked once, `-NoAdmin` skips it) the icon of every folder and the C: drive and of the shortcuts shared by all users, from `%ProgramData%\macstyle`; a hidden dark-mode watcher started from your Startup folder; a marked block in your PowerShell profiles; a Windows Terminal profile.
+**Windows.** Apps with winget, started right away and at every sign-in (a shortcut in your Startup folder for Seelen UI and QuickLook; PowerToys and Auto Dark Mode set that up themselves); fonts for your account only (no administrator); the cursor, wallpaper, accent and taskbar settings in your part of the registry; icons: desktop icons in your part of the registry, a hidden desktop.ini in your own folders, the icon of matching app shortcuts, and an icon pack, the top bar and dock layout and a few settings in Seelen UI (`%APPDATA%\com.seelen.seelen-ui`, each saved first); with administrator (asked once, `-NoAdmin` skips it) the icon of every folder and the C: drive and of the shortcuts shared by all users, from `%ProgramData%\macstyle`; a hidden dark-mode watcher started from your Startup folder; a marked block in your PowerShell profiles; a Windows Terminal profile.
 
 **KDE Plasma.** Everything goes into your home folder, except two packages (Kvantum and gdbus) and, for the terminal, the same packages as above: MacTahoe KDE (global theme, Plasma style, colours, window decorations, Kvantum theme) in `~/.local/share` and `~/.config/Kvantum`; MacTahoe icons and cursor; six day-and-night wallpaper packages in `~/.local/share/wallpapers`; two Konsole profiles; a small service (`macstyle-kde-darkswitch`, a systemd user unit) that switches Konsole with the theme. The KDE settings files it changes (`kdeglobals`, `kwinrc`, the panels and others) are each saved whole before the first change and put back whole by the uninstall.
 
@@ -187,7 +188,7 @@ It brings back the settings and files saved by the first install, removes what t
 
 ## Tested
 
-Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13 (GNOME), Fedora 43 and 44, Ubuntu 26.04 and Debian 13 (KDE Plasma), and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension is running, takes a screenshot, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, dark-mode watcher, PowerShell profiles, prompt and Windows Terminal profile, uninstalls and checks the registry is back.
+Every push installs macstyle on Fedora 43 and 44, Ubuntu 24.04 and 26.04, Debian 12 and 13 (GNOME), Fedora 43 and 44, Ubuntu 26.04 and Debian 13 (KDE Plasma), and Windows Server 2025, in CI ([tests/](tests/)). On Linux it then starts GNOME Shell (headless) and checks that every switched-on extension is running, takes a screenshot, uninstalls, and checks that the settings are back exactly as they were. On Windows it checks the fonts, cursor, wallpaper, dark-mode watcher, the top bar and dock layout, folder icons, PowerShell profiles, prompt and Windows Terminal profile, uninstalls and checks the registry, the folders and Seelen UI's settings are back. The Windows edition is also tried on a real Windows 11 laptop (build 26300) before a release.
 
 ![The macstyle desktop on Fedora 44 and 43, Ubuntu 26.04 and 24.04, and Debian 13 and 12, each with the top bar and the dock, as captured by CI](docs/screenshots/tested.jpg)
 

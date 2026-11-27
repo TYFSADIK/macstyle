@@ -13,6 +13,7 @@ folder-cloud folder-cloud
 computer computer
 trash-empty user-trash
 trash-full user-trash-full
+launchpad view-app-grid
 network network-workgroup
 drive drive-harddisk
 drive-usb drive-removable-media-usb

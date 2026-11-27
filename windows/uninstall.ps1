@@ -28,15 +28,11 @@ Stop-DarkSwitch
 Ok 'stopped'
 
 Step 'Icons'
-$seelenOn = @(Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)
-if ($seelenOn) { $seelenOn | Stop-Process -Force; Start-Sleep -Seconds 2 }
+# Seelen UI stays stopped until its settings and layouts are all back (it writes them when it closes)
+$seelenOn = Stop-Seelen
 Set-SeelenIconPack $false
-if ($seelenOn) {
-    $seelen = $null
-    try { $seelen = Get-StartApps | Where-Object { $_.Name -eq 'Seelen UI' } | Select-Object -First 1 } catch { }
-    if ($seelen) { Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList "shell:AppsFolder\$($seelen.AppID)" }
-}
-Ok 'dock icon pack switched off'
+Restore-SeelenLook
+Ok 'dock icon pack switched off; top bar and dock settings as they were'
 if (Test-Path (Join-Path $State 'machine-icons.txt')) {
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'lib\machine-icons.ps1') + '"'), '-Remove')
     try {
@@ -65,6 +61,17 @@ if ($policy) {
 
 Step 'Files and settings'
 Restore-Files
+# Folders that became read-only for their icon (Windows reads desktop.ini only then)
+$ro = Join-Path $Original 'readonly-folders.txt'
+if (Test-Path $ro) {
+    foreach ($f in @(Get-Content $ro | Select-Object -Unique)) {
+        try {
+            $d = Get-Item -LiteralPath $f -Force -ErrorAction Stop
+            if (-not (Test-Path -LiteralPath (Join-Path $f 'desktop.ini'))) { $d.Attributes = $d.Attributes -band -bnot [IO.FileAttributes]::ReadOnly }
+        } catch { }
+    }
+}
+if ($seelenOn) { Start-Seelen }   # the dock and top bar as they were before
 $fontDir = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
 $list = Join-Path $State 'installed.txt'
 $removed = 0
@@ -80,8 +87,8 @@ if (Test-Path $list) {
 }
 # The old lock screen picture first: setting a picture switches Windows Spotlight off, and the
 # registry, restored next, switches it back on if it was on
-$lock = Join-Path $Original 'lockscreen.jpg'
-if (Test-Path $lock) {
+$lock = Get-SavedLockScreen
+if ($lock) {
     try { Set-LockScreenImage $lock; Ok 'lock screen picture as before' } catch { Warn "lock screen picture: $($_.Exception.Message)" }
 }
 Restore-Registry

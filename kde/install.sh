@@ -67,6 +67,9 @@ KDE_FILES=(
     "$CONFIG_HOME/konsolerc"
     "$CONFIG_HOME/Kvantum/kvantum.kvconfig"
     "$CONFIG_HOME/gtk-3.0/settings.ini"
+    "$CONFIG_HOME/gtkrc"                                # written by Plasma 6.3 with a theme
+    "$CONFIG_HOME/gtkrc-2.0"
+    "$CONFIG_HOME/Trolltech.conf"
     "$CONFIG_HOME/gtk-4.0/settings.ini"
     "$CONFIG_HOME/xsettingsd/xsettingsd.conf"
     "$HOME/.gtkrc-2.0"
@@ -252,8 +255,11 @@ look() {
     # Themes > Global Theme: light, dark or automatic at sunset)
     kwrite kdeglobals KDE DefaultLightLookAndFeel "$LAF_LIGHT"
     kwrite kdeglobals KDE DefaultDarkLookAndFeel "$LAF_DARK"
-    if [[ -d /usr/lib64/qt6/plugins/styles || -d /usr/lib/qt6/plugins/styles ]] &&
-        find /usr/lib*/qt6/plugins/styles /usr/lib/*/qt6/plugins/styles -name '*kvantum*' -print -quit 2>/dev/null | grep -q .; then
+    # Qt's style plugins: /usr/lib64/qt6 (Fedora), /usr/lib/<architecture>/qt6 (Debian, Ubuntu)
+    local styles
+    styles="$(find /usr/lib64/qt6/plugins/styles /usr/lib/qt6/plugins/styles /usr/lib/*/qt6/plugins/styles \
+        -name '*kvantum*' -print -quit 2>/dev/null || true)"
+    if [[ -n "$styles" ]]; then
         kwrite Kvantum/kvantum.kvconfig General theme MacTahoe
         ok "Qt and KDE apps: Kvantum, MacTahoe"
     else

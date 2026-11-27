@@ -52,8 +52,10 @@ python3 tests/verify-kde.py dark || status=1
 
 # uninstall restarts Plasma itself (as at a login); here it is started by this script instead
 MACSTYLE_NO_PLASMA_RESTART=1 ./uninstall.sh --yes
-start_plasma
+# the files exactly as before, then Plasma back with its own panels (it rewrites its file as it starts)
 python3 tests/verify-kde.py uninstalled /tmp/before.json || status=1
+start_plasma
+python3 tests/verify-kde.py panels-back || status=1
 if kwin_alive; then echo "PASS  KWin ran through the whole test"; else echo "FAIL  KWin stopped during the test"; status=1; fi
 # shellcheck disable=SC2046
 kill $(jobs -p) 2>/dev/null || true

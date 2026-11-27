@@ -54,7 +54,10 @@ if systemctl --user is-active --quiet plasma-plasmashell.service 2>/dev/null; th
     plasma_service=1
     systemctl --user stop plasma-plasmashell.service
 elif gdbus introspect --session --dest org.kde.plasmashell --object-path /PlasmaShell >/dev/null 2>&1; then
-    kquitapp6 plasmashell >/dev/null 2>&1 || true
+    # kquitapp6 is not installed everywhere (Debian): the same request over D-Bus
+    kquitapp6 plasmashell >/dev/null 2>&1 ||
+        gdbus call --session --dest org.kde.plasmashell --object-path /MainApplication \
+            --method org.qtproject.Qt.QCoreApplication.quit >/dev/null 2>&1 || true
 fi
 for _ in $(seq 1 20); do
     gdbus introspect --session --dest org.kde.plasmashell --object-path /PlasmaShell >/dev/null 2>&1 || break

@@ -3,7 +3,8 @@
     verify-kde.py snapshot FILE       record every file under ~/.config, ~/.local/share and ~ dotfiles
     verify-kde.py installed           the theme, the window buttons, the panels, Konsole
     verify-kde.py dark                after switching to MacTahoe Dark: Konsole follows
-    verify-kde.py uninstalled FILE    every file as in the snapshot
+    verify-kde.py uninstalled FILE    every file as in the snapshot (Plasma not running)
+    verify-kde.py panels-back         Plasma started again, with its own panels
 """
 import hashlib
 import json
@@ -23,7 +24,7 @@ NOISE = ("kactivitymanagerd", "baloo", "recently-used", "user-places.xbel", "Rec
          "xdg-desktop-portal", "flatpak", "applications/mimeinfo.cache", "gtk-3.0/bookmarks", "kactivitymanagerdrc",
          "systemsettingsrc", "khotkeysrc", "akonadi", "kpeople", "kpeoplevcard", "plasma/plasmoids/.cache",
          "zsh/", ".zcompdump", "gitstatus", ".cache", "user-dirs", "dconf/user", "Kvantum/kvantum.kvconfig",
-         "fontconfig", "kwinoutputconfig.json", "kwinrulesrc")
+         "fontconfig", "kwinoutputconfig.json", "kwinrulesrc", "UserFeedback", "spectaclerc")
 results = []
 
 
@@ -122,6 +123,7 @@ def main():
         check("every file as before", not changed, " ".join(changed[:20]))
         check("nothing missing", not gone, " ".join(gone[:20]))
         check("nothing left behind", not extra, " ".join(extra[:20]))
+    elif what == "panels-back":
         info = plasma('print(panels().length + ":" + panels().map(function (p) { return p.widgets().map(function (w) { return w.type; }).join("|"); }).join(" / "))')
         check("Plasma back with its own panels", info.split(":")[0] == "1" and "org.kde.plasma.appmenu" not in info, info)
     return 0 if all(results) else 1

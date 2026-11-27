@@ -52,6 +52,8 @@ Check 'This PC icon' (($pc -like '*macstyle*computer.ico,0') -and (Test-Path ($p
 Check 'Documents folder icon' ((Test-Path $docsIni) -and ((Get-Content -Raw $docsIni) -match 'IconResource=.*macstyle.*folder-documents\.ico'))
 $folderIcon = RegVal 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons' '3'
 Check 'every folder icon (administrator step)' (($folderIcon -like '*ProgramData*macstyle*folder.ico,0') -and (Test-Path ($folderIcon -replace ',0$', ''))) $folderIcon
+if ($installText -match 'picture on the lock screen') { Check 'lock screen picture saved for the uninstall' ((Test-Path (Join-Path $env:LOCALAPPDATA 'macstyle\original\lockscreen.jpg')) -or (Test-Path (Join-Path $env:LOCALAPPDATA 'macstyle\original\lockscreen-none.txt'))) }
+else { Write-Host "note  lock screen: $((($installText -split "`n") | Select-String 'lock screen' | Select-Object -Last 1))" }
 Check 'Finder: file extensions hidden' ((RegVal 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' 'HideFileExt') -eq 1)
 Check 'Finder: Gallery out of the sidebar' ((RegVal 'HKCU:\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}' 'System.IsPinnedToNameSpaceTree') -eq 0)
 $nav = $before['HKCU:\AppEvents\Schemes\Apps\Explorer\Navigating\.Current|(default)']

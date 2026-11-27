@@ -349,6 +349,7 @@ function Set-LockScreenImage([string]$Path) {
 
 function Save-LockScreenImage([string]$Dest) {
     # The picture on the lock screen now, kept so the uninstall can put it back
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime   # AsStreamForRead
     [void][Windows.System.UserProfile.LockScreen, Windows.System.UserProfile, ContentType = WindowsRuntime]
     $stream = [Windows.System.UserProfile.LockScreen]::GetImageStream()
     if (-not $stream) { return $false }

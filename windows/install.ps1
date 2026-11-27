@@ -219,7 +219,7 @@ function Set-ContentFolderIcons([string[]]$Parents, [string]$Icon, [int]$Max = 6
             $ini = Join-Path $d.FullName 'desktop.ini'
             if (Test-Path -LiteralPath $ini) {
                 $text = Get-Content -LiteralPath $ini -Raw -ErrorAction SilentlyContinue
-                if ($text -match '(?im)^\s*(IconResource|IconFile)\s*=' -and $text -notmatch [regex]::Escape($State)) { continue }
+                if ($text -match '(?im)^\s*(IconResource|IconFile)\s*=') { continue }   # its own icon (or macstyle's already)
             }
             try { Set-FolderIcon $d.FullName $Icon; $n++ } catch { }
         }
@@ -280,11 +280,12 @@ function Install-SeelenIcons([string]$SvgDir) {
     [IO.File]::WriteAllText((Join-Path $pack 'metadata.yml'), (ConvertTo-Json -InputObject $meta -Depth 6), $utf8)
 
     # Switch the pack on (Seelen UI stopped while its settings are written)
-    [void](Stop-Seelen)
     $settings = Join-Path $root 'settings.json'
     $keep = Join-Path $Original 'seelen-settings.json'
-    if ((Test-Path $settings) -and -not (Test-Path $keep)) { Copy-Item $settings $keep }   # a copy, just in case
-    Set-SeelenIconPack $true
+    [void](Invoke-SeelenStopped {
+        if ((Test-Path $settings) -and -not (Test-Path $keep)) { Copy-Item $settings $keep }   # a copy, just in case
+        Set-SeelenIconPack $true
+    })
     Start-Seelen
     Ok "dock: $($entries.Count) apps and places with macOS icons (Seelen UI icon pack)"
 }
@@ -471,8 +472,9 @@ function Set-TopBarAndDock {
     Step 'Top bar and dock like macOS (Seelen UI)'
     if ($NoApps) { Warn 'skipped (-NoApps)'; return }
     if (-not (Get-Seelen) -and -not (Test-Path $SeelenRoot)) { Warn 'Seelen UI is not installed: skipped'; return }
-    [void](Stop-Seelen)
-    $n = Set-SeelenLook
+    $script:dockCount = 0
+    [void](Invoke-SeelenStopped { $script:dockCount = Set-SeelenLook })
+    $n = $script:dockCount
     Start-Seelen
     Ok 'top bar: system menu, the app name in bold, status icons, Control Centre and the clock on the right'
     Ok "dock: Finder, Launchpad and $($n - 2) more, the Trash after a divider; Seelen's own wallpaper off"

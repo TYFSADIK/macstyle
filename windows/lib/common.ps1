@@ -400,6 +400,20 @@ function Stop-Seelen {
     return $true
 }
 
+function Invoke-SeelenStopped([scriptblock]$Write) {
+    # Runs $Write while Seelen UI is not running, and again if something (its service) started it
+    # in between, so the files it writes are the ones Seelen UI reads next. Returns whether Seelen
+    # UI was running before.
+    $was = $false
+    for ($i = 0; $i -lt 3; $i++) {
+        if (Stop-Seelen) { $was = $true }
+        & $Write | Out-Null
+        Start-Sleep -Seconds 3
+        if (-not (Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)) { break }
+    }
+    return $was
+}
+
 function Start-Seelen {
     $seelen = Get-Seelen
     if ($seelen -and -not (Get-Process -Name 'seelen-ui' -ErrorAction SilentlyContinue)) {

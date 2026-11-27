@@ -29,9 +29,16 @@ Ok 'stopped'
 
 Step 'Icons'
 # Seelen UI stays stopped until its settings and layouts are all back (it writes them when it closes)
-$seelenOn = Stop-Seelen
-Set-SeelenIconPack $false
-Restore-SeelenLook
+$seelenOn = Invoke-SeelenStopped {
+    Set-SeelenIconPack $false
+    Restore-SeelenLook
+    # its two layout files, as they were (they are in the list Restore-Files puts back below too)
+    foreach ($e in (Read-Json (Join-Path $Original 'files.json'))) {
+        if ($e.Path -notlike "$SeelenRoot\*") { continue }
+        if ($e.Backup -and (Test-Path -LiteralPath $e.Backup)) { Copy-Item -LiteralPath $e.Backup -Destination $e.Path -Force }
+        elseif (Test-Path -LiteralPath $e.Path) { Remove-Item -LiteralPath $e.Path -Force }
+    }
+}
 Ok 'dock icon pack switched off; top bar and dock settings as they were'
 if (Test-Path (Join-Path $State 'machine-icons.txt')) {
     $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'lib\machine-icons.ps1') + '"'), '-Remove')

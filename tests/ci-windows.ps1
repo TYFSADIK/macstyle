@@ -106,7 +106,8 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
         $tb = Get-Content -Raw (Join-Path $seelenRoot 'data\seelen-fancy-toolbar\state.yml') | ConvertFrom-Json
         Check 'top bar: system menu at the left, the clock at the right' (($tb.left[0].onClick -match 'power-menu') -and ($tb.right[-1] -eq '@seelen/tb-calendar-popup'))
         $dk = (Get-Content -Raw (Join-Path $seelenRoot 'data\seelen-weg\state.yml')) -replace "`r", ''
-        Check 'dock: Finder, then Launchpad, the Trash at the end' (($dk -match "center:\n- type: AppOrFile\n  id: [^\n]+\n  displayName: 'Finder'\n(  [^\n]*\n)*- type: Plugin\n  id: [^\n]+\n  plugin: '@default/weg-start-menu'") -and ($dk.TrimEnd() -match "plugin: '@default/weg-trash-bin'$"))
+        Check 'dock: Finder, then Launchpad, the Trash at the end' (($dk -match "center:\n- type: AppOrFile\n  id: [^\n]+\n  displayName: '?Finder'?\n(  [^\n]*\n)*- type: Plugin\n  id: [^\n]+\n  plugin: '?@default/weg-start-menu'?") -and ($dk.TrimEnd() -match "plugin: '?@default/weg-trash-bin'?$"))
+        if (-not ($dk -match 'weg-trash-bin')) { Write-Host $dk }
     } else { Check 'top bar and dock step ran' $false ((($installText -split "`n") | Select-String 'Top bar and dock' -Context 0, 2 | Out-String).Trim()) }
     Check 'Auto Dark Mode installed or tried' $adm (($installText -split "`n" | Select-String 'Auto Dark Mode') -join ' ').Trim()
     # The prompt itself renders in a fresh PowerShell with the profile
@@ -131,7 +132,7 @@ Remove-Item $deskFolder -Recurse -Force
 foreach ($f in $seelenState.Keys) {
     $x = Join-Path $seelenRoot $f
     if ($seelenState[$f] -ne '<none>') { Check "Seelen UI $f as before" ((Test-Path $x) -and (Get-FileHash $x).Hash -eq $seelenState[$f]) }
-    else { Check "Seelen UI ${f}: macstyle's layout gone" (-not ((Test-Path $x) -and ((Get-Content -Raw $x) -match "Shut down, restart, sleep|displayName: 'Finder'"))) }
+    else { Check "Seelen UI ${f}: macstyle's layout gone" (-not ((Test-Path $x) -and ((Get-Content -Raw $x) -match "Shut down, restart, sleep|displayName: '?Finder'?\s*$|(?m)displayName: '?Finder'?\r?$"))) }
 }
 $wallMgr = SeelenSetting @('byWidget', '@seelen/wallpaper-manager', 'enabled')
 Check 'Seelen UI wallpaper setting as before' ($wallMgr -eq $wallMgrBefore -or ($wallMgrBefore -eq '<none>' -and $wallMgr -ne 'False')) "$wallMgrBefore -> $wallMgr"

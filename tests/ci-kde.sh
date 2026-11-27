@@ -33,7 +33,9 @@ dpkg-query -W -f='plasma-workspace ${Version}\n' plasma-workspace 2>/dev/null ||
 
 id tester >/dev/null 2>&1 || useradd -m -s /bin/bash tester
 mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
-mkdir -p /run/user/1000 && chown tester:tester /run/user/1000 && chmod 700 /run/user/1000
+# the user's runtime folder, by its own number (Ubuntu's image already has a user 1000)
+uid="$(id -u tester)"
+mkdir -p "/run/user/$uid" && chown tester:tester "/run/user/$uid" && chmod 700 "/run/user/$uid"
 dbus-uuidgen --ensure
 mkdir -p /run/dbus
 [ -S /run/dbus/system_bus_socket ] || dbus-daemon --system --fork

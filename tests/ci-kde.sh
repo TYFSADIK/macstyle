@@ -29,7 +29,7 @@ esac
 # KWin asks for real-time priority through a file capability, which a container may not grant
 kwin="$(command -v kwin_wayland)"
 if getcap "$kwin" 2>/dev/null | grep -q cap_; then setcap -r "$kwin"; fi
-QT_QPA_PLATFORM=offscreen plasmashell --version
+dpkg-query -W -f='plasma-workspace ${Version}\n' plasma-workspace 2>/dev/null || rpm -q plasma-workspace
 
 id tester >/dev/null 2>&1 || useradd -m -s /bin/bash tester
 mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix

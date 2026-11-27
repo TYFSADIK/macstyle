@@ -1,10 +1,16 @@
+#!/usr/bin/env bash
 # CI, KDE Plasma: run as the test user inside dbus-run-session. Starts KWin (headless) and Plasma
 # as a login would, installs macstyle, checks it, switches to dark, uninstalls, checks every file.
 # No screenshots: KWin's screenshot path needs a graphics card, which the runners have not got.
 set -Eeuo pipefail
 cd ~/macstyle
-export XDG_RUNTIME_DIR="/run/user/$(id -u)" XDG_CURRENT_DESKTOP=KDE XDG_SESSION_TYPE=wayland \
+uid="$(id -u)"
+export XDG_RUNTIME_DIR="/run/user/$uid" XDG_CURRENT_DESKTOP=KDE XDG_SESSION_TYPE=wayland \
     XDG_SESSION_DESKTOP=KDE KDE_FULL_SESSION=true KDE_SESSION_VERSION=6
+# A crash shows as an error in the log, not as a crash dialog waiting for a click (DrKonqi); and no
+# "Welcome to Plasma" window at the first start
+export KDE_DEBUG=1
+mkdir -p ~/.config && printf '[General]\nLastSeenVersion=99.0.0\nShowUpdatePage=false\n' > ~/.config/plasma-welcomerc
 # as startplasma sets it: the global theme's values live in ~/.config/kdedefaults
 export XDG_CONFIG_DIRS="$HOME/.config/kdedefaults:${XDG_CONFIG_DIRS:-/etc/xdg}"
 kwin_wayland --virtual --no-lockscreen --width 1440 --height 900 --xwayland > /tmp/kwin.log 2>&1 &
@@ -49,5 +55,6 @@ MACSTYLE_NO_PLASMA_RESTART=1 ./uninstall.sh --yes
 start_plasma
 python3 tests/verify-kde.py uninstalled /tmp/before.json || status=1
 if kwin_alive; then echo "PASS  KWin ran through the whole test"; else echo "FAIL  KWin stopped during the test"; status=1; fi
+# shellcheck disable=SC2046
 kill $(jobs -p) 2>/dev/null || true
 exit "$status"

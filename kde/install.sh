@@ -79,6 +79,20 @@ plasma_script() {   # run JavaScript in Plasma (the desktop scripting API)
         --method org.kde.PlasmaShell.evaluateScript "$1"
 }
 
+# The Plasma version, from the package manager: a second plasmashell, even with --version, can
+# crash on some releases (Debian 13 under Qt's offscreen platform) and open a crash dialog.
+plasma_version() {
+    local v=""
+    case "$DISTRO_FAMILY" in
+        fedora) v="$(rpm -q --qf '%{VERSION}' plasma-workspace 2>/dev/null || true)" ;;
+        debian) v="$(dpkg-query -W -f='${Version}' plasma-workspace 2>/dev/null || true)"; v="${v#*:}"; v="${v%%[-+~]*}" ;;
+    esac
+    if [[ ! "$v" =~ ^[0-9]+\. ]]; then   # no package: ask plasmashell, without its crash reporter
+        v="$(KDE_DEBUG=1 QT_QPA_PLATFORM=offscreen timeout 10 plasmashell --version 2>/dev/null | awk '{print $2}' || true)"
+    fi
+    echo "$v"
+}
+
 # --- checks --------------------------------------------------------------------------------------
 
 preflight() {
@@ -92,9 +106,8 @@ preflight() {
         PACKAGES_ON=0
     fi
     command -v plasmashell >/dev/null || die "KDE Plasma is not installed."
-    # (offscreen: plasmashell --version needs no screen then; over a plain terminal it would abort)
-    PLASMA_VERSION="$(QT_QPA_PLATFORM=offscreen plasmashell --version 2>/dev/null | awk '{print $2}')"
-    [[ "${PLASMA_VERSION%%.*}" =~ ^[0-9]+$ ]] || die "could not tell the Plasma version ($(QT_QPA_PLATFORM=offscreen plasmashell --version 2>&1 | head -n 1))."
+    PLASMA_VERSION="$(plasma_version)"
+    [[ "${PLASMA_VERSION%%.*}" =~ ^[0-9]+$ ]] || die "could not tell the Plasma version (package plasma-workspace: '$PLASMA_VERSION')."
     ((${PLASMA_VERSION%%.*} >= MIN_PLASMA)) ||
         die "Plasma $PLASMA_VERSION is too old; macstyle needs Plasma 6 (Fedora 40, Kubuntu 25.04, Debian 13 and later)."
     [[ "${XDG_CURRENT_DESKTOP:-}" == *KDE* && -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]] ||

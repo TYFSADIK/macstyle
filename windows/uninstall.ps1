@@ -78,11 +78,13 @@ if (Test-Path $list) {
         $removed++
     }
 }
-Restore-Registry
+# The old lock screen picture first: setting a picture switches Windows Spotlight off, and the
+# registry, restored next, switches it back on if it was on
 $lock = Join-Path $Original 'lockscreen.jpg'
 if (Test-Path $lock) {
     try { Set-LockScreenImage $lock; Ok 'lock screen picture as before' } catch { Warn "lock screen picture: $($_.Exception.Message)" }
 }
+Restore-Registry
 $pt = @(Get-Process -Name 'PowerToys' -ErrorAction SilentlyContinue)
 if ($pt) { $exe = $pt[0].Path; $pt | Stop-Process -Force; Start-Sleep -Seconds 2; if ($exe) { Start-Process -FilePath $exe } }   # rereads its restored settings
 Update-Icons

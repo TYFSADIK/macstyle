@@ -29,8 +29,15 @@ icons() {
         local src; src="$(find "$tmp" -maxdepth 1 -type d -name 'MacTahoe-icon-theme-*' -print -quit)"
         [[ -n "$src" && -x "$src/install.sh" ]] || die "the icon download looks wrong ($ICONS_URL)."
         for t in MacTahoe MacTahoe-light MacTahoe-dark; do keep_original "$ICONS_DIR/$t"; done
-        (cd "$src" && ./install.sh -d "$ICONS_DIR" >/dev/null 2>&1) ||
-            die "the MacTahoe icon installer failed."
+        # It ends with gtk-update-icon-cache, which a KDE-only system may not have; the cache only
+        # speeds up GTK apps, so without the command a stand-in that does nothing is used
+        mkdir -p "$tmp/bin"
+        if ! command -v gtk-update-icon-cache >/dev/null; then
+            printf '#!/bin/sh\nexit 0\n' > "$tmp/bin/gtk-update-icon-cache"
+            chmod 755 "$tmp/bin/gtk-update-icon-cache"
+        fi
+        (cd "$src" && PATH="$tmp/bin:$PATH" ./install.sh -d "$ICONS_DIR" >"$tmp/icons.log" 2>&1) ||
+            { tail -n 15 "$tmp/icons.log" >&2; die "the MacTahoe icon installer failed (see above)."; }
         for t in MacTahoe MacTahoe-light MacTahoe-dark; do mark_installed "$ICONS_DIR/$t"; done
         rm -rf -- "$tmp"
         ok "MacTahoe icons and cursor installed"

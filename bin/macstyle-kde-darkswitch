@@ -1,0 +1,36 @@
+#!/bin/sh
+# macstyle (KDE Plasma): when the global theme changes between light and dark, Konsole follows:
+# the default profile for new windows, and the profile of every open macstyle tab. Run by
+# macstyle-kde-darkswitch.path whenever ~/.config/kdeglobals changes, and once at login.
+# The theme itself, Qt and KDE apps (Kvantum), the panel and the wallpaper switch on their own.
+read_kde() {   # file group key
+    for k in kreadconfig6 kreadconfig5; do
+        command -v "$k" >/dev/null 2>&1 && { "$k" --file "$1" --group "$2" --key "$3"; return; }
+    done
+}
+write_kde() {  # file group key value
+    for k in kwriteconfig6 kwriteconfig5; do
+        command -v "$k" >/dev/null 2>&1 && { "$k" --file "$1" --group "$2" --key "$3" "$4"; return; }
+    done
+}
+case "$(read_kde kdeglobals General ColorScheme)" in
+    *[Dd]ark*) want=dark ;;
+    *) want=light ;;
+esac
+[ "$(read_kde konsolerc 'Desktop Entry' DefaultProfile)" = "macstyle-$want.profile" ] ||
+    write_kde konsolerc 'Desktop Entry' DefaultProfile "macstyle-$want.profile"
+# Open Konsole windows: every tab on a macstyle profile switches
+for svc in $(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+        --method org.freedesktop.DBus.ListNames 2>/dev/null | grep -oE "org\.kde\.konsole-[0-9]+"); do
+    for s in $(gdbus introspect --session --dest "$svc" --object-path /Sessions 2>/dev/null |
+            sed -n 's/^ *node \([0-9][0-9]*\) .*/\1/p'); do
+        cur="$(gdbus call --session --dest "$svc" --object-path "/Sessions/$s" \
+            --method org.kde.konsole.Session.profile 2>/dev/null | sed "s/^('//; s/',)$//")"
+        case "$cur" in
+            "macstyle light"|"macstyle dark")
+                [ "$cur" = "macstyle $want" ] || gdbus call --session --dest "$svc" --object-path "/Sessions/$s" \
+                    --method org.kde.konsole.Session.setProfile "macstyle $want" >/dev/null 2>&1 ;;
+        esac
+    done
+done
+exit 0

@@ -12,9 +12,9 @@ jobs:
       - name: ShellCheck
         run: shellcheck -x install.sh uninstall.sh lib/*.sh bin/macstyle-darkswitch bin/macstyle-appfollow libexec/downloads-stack tests/ci-linux.sh || true
       - name: ShellCheck (must pass)
-        run: shellcheck -x install.sh uninstall.sh lib/distro.sh lib/common.sh bin/macstyle-darkswitch tests/ci-linux.sh
+        run: shellcheck -x install.sh uninstall.sh lib/distro.sh lib/common.sh lib/files.sh lib/shared.sh bin/macstyle-darkswitch tests/ci-linux.sh kde/install.sh kde/uninstall.sh bin/macstyle-kde-darkswitch tests/ci-kde.sh tests/kde-session.sh
       - name: Python
-        run: python3 -m py_compile lib/*.py tests/verify.py
+        run: python3 -m py_compile lib/*.py tests/verify.py tests/verify-kde.py
 
   linux:
     strategy:
@@ -34,6 +34,27 @@ jobs:
         if: always()
         with:
           name: "linux-${{ strategy.job-index }}"
+          path: tests/out
+          if-no-files-found: ignore
+
+  kde:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["fedora:43", "fedora:44", "ubuntu:26.04", "debian:13"]
+    runs-on: ubuntu-latest
+    container: { image: "${{ matrix.image }}", options: --privileged }
+    steps:
+      - name: Tools for checkout
+        run: |
+          if command -v dnf >/dev/null; then dnf install -y -q git tar; else apt-get update -qq && apt-get install -y -qq git ca-certificates; fi
+      - uses: actions/checkout@v4
+      - name: Install Plasma, start KWin and Plasma headless, install, check, dark, uninstall, check
+        run: bash tests/ci-kde.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "kde-${{ strategy.job-index }}"
           path: tests/out
           if-no-files-found: ignore
 

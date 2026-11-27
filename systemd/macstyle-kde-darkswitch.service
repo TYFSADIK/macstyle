@@ -1,0 +1,9 @@
+[Unit]
+Description=macstyle: Konsole follows the light or dark global theme
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/macstyle-kde-darkswitch
+
+[Install]
+WantedBy=default.target

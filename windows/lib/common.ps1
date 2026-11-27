@@ -603,12 +603,21 @@ function Restore-SeelenLook {
     $file = Join-Path $SeelenRoot 'settings.json'
     if (-not (Test-Path $savedFile) -or -not (Test-Path $file)) { return }
     $cfg = Get-Content -Raw $file | ConvertFrom-Json
-    foreach ($s in @(Get-Content -Raw $savedFile | ConvertFrom-Json)) {
+    # (assigned first: Windows PowerShell 5.1 passes a JSON array down the pipeline as one item)
+    $saved = Get-Content -Raw $savedFile | ConvertFrom-Json
+    foreach ($s in $saved) {
         $path = @($s.Path)
         if ($s.Exists) { Set-JsonPath $cfg $path $s.Value; continue }
         if ($path.Count -eq 1) { $cfg.PSObject.Properties.Remove($path[0]); continue }
         $parent = Get-JsonPath $cfg $path[0..($path.Count - 2)]
-        if ($parent.Exists -and $null -ne $parent.Value) { $parent.Value.PSObject.Properties.Remove($path[-1]) }
+        if ($parent.Exists -and $null -ne $parent.Value) {
+            $parent.Value.PSObject.Properties.Remove($path[-1])
+            # a section macstyle made for it, now empty, goes too
+            if ($path.Count -ge 3 -and @($parent.Value.PSObject.Properties).Count -eq 0) {
+                $gp = Get-JsonPath $cfg $path[0..($path.Count - 3)]
+                if ($gp.Exists -and $null -ne $gp.Value) { $gp.Value.PSObject.Properties.Remove($path[-2]) }
+            }
+        }
     }
     $utf8 = New-Object Text.UTF8Encoding $false
     [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject $cfg -Depth 30), $utf8)
